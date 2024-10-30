@@ -2,13 +2,16 @@ add_subdirectory(third_party)
 
 add_executable(gpbr
 	src/main.cpp
-)
+	src/Graphics/Vulkan/vk_engine.cpp
+ "include/gpbr/Graphics/Vulkan/vk_initializers.h")
 set_target_properties(gpbr PROPERTIES
   CXX_STANDARD 20
   CXX_EXTENSIONS OFF
 )
 if(MSVC)
    set_target_properties(gpbr PROPERTIES DEBUG_POSTFIX _d)
+   add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+   add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 endif()
 
 target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
@@ -46,18 +49,17 @@ if(Vulkan_volk_FOUND)
 else()
 	message(FATAL_ERROR "volk library not found!")
 endif()
-# TODO: Find out why FindVulkan.cmake doesnt define the following:
-# Vulkan_glslang_FOUND
-
 message(STATUS "Vulkan_LIBRARY=${Vulkan_LIBRARY}")
 message(STATUS "Vulkan_glslang_LIBRARY=${Vulkan_glslang_LIBRARY}")
 message(STATUS "Vulkan_SPIRV-Tools_LIBRARY=${Vulkan_SPIRV-Tools_LIBRARY}")
 message(STATUS "Vulkan_GLSLANG_VALIDATOR_EXECUTABLE=${Vulkan_GLSLANG_VALIDATOR_EXECUTABLE}")
+# TODO: Find out why FindVulkan.cmake doesnt define Vulkan_glslang_FOUND
 
 target_link_libraries(gpbr
 	PUBLIC
 		Vulkan::volk
 		vk-bootstrap::vk-bootstrap
+		fmt::fmt
 )
 
 target_compile_definitions(gpbr
@@ -65,3 +67,27 @@ target_compile_definitions(gpbr
 		VK_NO_PROTOTYPES
 		VMA_VULKAN_VERSION=1003000
 )
+
+# SDL
+if(BUILD_SHARED_LIBS)
+  target_link_libraries(gpbr PUBLIC
+    SDL3::SDL3
+  )
+else()
+  target_link_libraries(gpbr PUBLIC
+    SDL3::SDL3-static
+  )
+endif()
+
+# glm
+target_compile_definitions(gpbr
+  PUBLIC
+    GLM_FORCE_CTOR_INIT
+    GLM_FORCE_XYZW_ONLY
+    GLM_FORCE_EXPLICIT_CTOR
+    GLM_FORCE_DEPTH_ZERO_TO_ONE
+    GLM_ENABLE_EXPERIMENTAL
+)
+
+# copy dlls to the same folder as the executable
+copy_runtime_dlls(gpbr)

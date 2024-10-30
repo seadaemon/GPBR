@@ -6,6 +6,9 @@ project(
 	LANGUAGES C CXX
 )
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(CopyRuntimeDLLs)
+
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Dynamic linking of libraries")
 
 add_subdirectory(gpbr)

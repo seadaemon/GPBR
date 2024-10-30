@@ -1,10 +1,14 @@
 BasedOnStyle: LLVM
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortFunctionsOnASingleLine: Inline
+BinPackArguments: False
+BinPackParameters: False
 BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: False
 ColumnLimit: 120
+ExperimentalAutoDetectBinPacking: false
 IndentWidth: 4
 ReferenceAlignment: Left
 PointerAlignment: Left

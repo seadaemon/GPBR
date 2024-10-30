@@ -1,3 +1,9 @@
 [submodule "gpbr/third_party/vk-bootstrap"]
 	path = gpbr/third_party/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "gpbr/third_party/SDL"]
+	path = gpbr/third_party/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "gpbr/third_party/fmt"]
+	path = gpbr/third_party/fmt
+	url = https://github.com/fmtlib/fmt.git
