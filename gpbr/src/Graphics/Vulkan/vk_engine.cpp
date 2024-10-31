@@ -105,6 +105,7 @@ void VulkanEngine::init_vulkan()
     _device         = vkb_device.device;
     _chosen_GPU     = physical_device.physical_device;
     _dispatch_table = vkb_device.make_table();
+
     //<== INIT DEVICE
 
     //==> INIT QUEUE
@@ -149,20 +150,10 @@ void VulkanEngine::destroy_swapchain()
 {
     _dispatch_table.fp_vkDestroySwapchainKHR(_device, _swapchain, nullptr);
 
-    // PFN_vkDestroySwapchainKHR fp_destroy_swapchain_KHR{}; // TODO: Redefine elsewhere
-    // if (fp_destroy_swapchain_KHR)
-    //{
-    //     fp_destroy_swapchain_KHR(_device, _swapchain, nullptr);
-    // }
-
     // destroy swapchain resources
-    PFN_vkDestroyImageView fp_destroy_image_view{}; // TODO: Redefine elsewhere
-    if (fp_destroy_image_view)
+    for (int i = 0; i < _swapchain_image_views.size(); i++)
     {
-        for (int i = 0; i < _swapchain_image_views.size(); i++)
-        {
-            fp_destroy_image_view(_device, _swapchain_image_views[i], nullptr);
-        }
+        _dispatch_table.fp_vkDestroyImageView(_device, _swapchain_image_views[i], nullptr);
     }
 }
 
@@ -171,13 +162,9 @@ void VulkanEngine::cleanup()
     if (_is_initialized)
     {
 
-        PFN_vkDestroyInstance fp_destroy_instance{}; // TODO: Redefine elsewhere
-        if (fp_destroy_instance)
-        {
-            fp_destroy_instance(_instance, nullptr);
-        }
-
         destroy_swapchain();
+
+        _instance_dispatch_table.fp_vkDestroySurfaceKHR(_instance, _surface, nullptr);
 
         PFN_vkDestroyDevice fp_destroy_device{};
         if (fp_destroy_device)
@@ -185,14 +172,8 @@ void VulkanEngine::cleanup()
             fp_destroy_device(_device, nullptr);
         }
 
-        PFN_vkDestroySurfaceKHR fp_destroy_surface_KHR{}; // TODO: Redefine elsewhere
-        if (fp_destroy_surface_KHR)
-        {
-            fp_destroy_surface_KHR(_instance, _surface, nullptr);
-        }
-
         vkb::destroy_debug_utils_messenger(_instance, _debug_messenger, nullptr);
-
+        _instance_dispatch_table.fp_vkDestroyInstance(_instance, nullptr);
         SDL_DestroyWindow(_window);
     }
 
