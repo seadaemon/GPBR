@@ -12,7 +12,7 @@
 //<== INCLUDES
 
 //==> INIT
-constexpr bool use_validation_layers = false;
+constexpr bool use_validation_layers = true;
 
 VulkanEngine* loaded_engine = nullptr;
 
@@ -37,16 +37,162 @@ void VulkanEngine::init()
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-    _window = SDL_CreateWindow("Vulkan Engine", _window_extent.width, _window_extent.height, window_flags);
+    _window = SDL_CreateWindow("George's Physically Based Renderer", //
+                               _window_extent.width,                 //
+                               _window_extent.height,                //
+                               window_flags                          //
+    );
+
+    init_vulkan();
+
+    init_swapchain();
+
+    init_commands();
+
+    init_sync_structures();
 
     _is_initialized = true;
 }
 //<== INIT
 
+void VulkanEngine::init_vulkan()
+{
+    //==> INIT INSTANCE
+    vkb::InstanceBuilder builder;
+
+    // vulkan instance w/ debug features
+    auto inst_ret = builder.set_app_name("Example Vulkan Application")
+                        .request_validation_layers(use_validation_layers) //
+                        .use_default_debug_messenger()                    //
+                        .require_api_version(1, 3, 0)                     //
+                        .build();
+
+    vkb::Instance vkb_inst   = inst_ret.value();
+    _instance                = vkb_inst.instance;
+    _debug_messenger         = vkb_inst.debug_messenger;
+    _instance_dispatch_table = vkb_inst.make_table();
+    //<== INIT INSTANCE
+
+    //==> INIT DEVICE
+    SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
+
+    // vulkan 1.3 features
+    VkPhysicalDeviceVulkan13Features features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features.dynamicRendering = true;
+    features.synchronization2 = true;
+
+    // vulkan 1.2 features
+    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    features12.bufferDeviceAddress = true;
+    features12.descriptorIndexing  = true;
+
+    // select a gpu
+    vkb::PhysicalDeviceSelector selector{vkb_inst};
+    vkb::PhysicalDevice physical_device = selector                                  //
+                                              .set_minimum_version(1, 3)            //
+                                              .set_required_features_13(features)   //
+                                              .set_required_features_12(features12) //
+                                              .set_surface(_surface)                //
+                                              .select()                             //
+                                              .value();
+
+    // create the vulkan device
+    vkb::DeviceBuilder device_builder{physical_device};
+
+    vkb::Device vkb_device = device_builder.build().value();
+
+    // get device handle;
+    _device         = vkb_device.device;
+    _chosen_GPU     = physical_device.physical_device;
+    _dispatch_table = vkb_device.make_table();
+    //<== INIT DEVICE
+
+    //==> INIT QUEUE
+    // get graphics queue
+    //_graphics_queue
+    //<== INIT QUEUE
+}
+
+void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
+{
+    vkb::SwapchainBuilder swapchain_builder{_chosen_GPU, _device, _surface};
+
+    _swapchain_image_format = VK_FORMAT_B8G8R8A8_UNORM;
+
+    vkb::Swapchain vkb_swapchain =
+        swapchain_builder
+            .set_desired_format(VkSurfaceFormatKHR{.format     = _swapchain_image_format,            //
+                                                   .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}) //
+            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)     // present mode enables vsync
+            .set_desired_extent(width, height)                      //
+            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT) //
+            .build()                                                //
+            .value();
+
+    _swapchain_extent = vkb_swapchain.extent;
+    // store swapchain & related images
+    _swapchain             = vkb_swapchain.swapchain;
+    _swapchain_images      = vkb_swapchain.get_images().value();
+    _swapchain_image_views = vkb_swapchain.get_image_views().value();
+}
+
+void VulkanEngine::init_swapchain()
+{
+    create_swapchain(_window_extent.width, _window_extent.height);
+}
+
+void VulkanEngine::init_commands() {}
+
+void VulkanEngine::init_sync_structures() {}
+
+void VulkanEngine::destroy_swapchain()
+{
+    _dispatch_table.fp_vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+
+    // PFN_vkDestroySwapchainKHR fp_destroy_swapchain_KHR{}; // TODO: Redefine elsewhere
+    // if (fp_destroy_swapchain_KHR)
+    //{
+    //     fp_destroy_swapchain_KHR(_device, _swapchain, nullptr);
+    // }
+
+    // destroy swapchain resources
+    PFN_vkDestroyImageView fp_destroy_image_view{}; // TODO: Redefine elsewhere
+    if (fp_destroy_image_view)
+    {
+        for (int i = 0; i < _swapchain_image_views.size(); i++)
+        {
+            fp_destroy_image_view(_device, _swapchain_image_views[i], nullptr);
+        }
+    }
+}
+
 void VulkanEngine::cleanup()
 {
     if (_is_initialized)
     {
+
+        PFN_vkDestroyInstance fp_destroy_instance{}; // TODO: Redefine elsewhere
+        if (fp_destroy_instance)
+        {
+            fp_destroy_instance(_instance, nullptr);
+        }
+
+        destroy_swapchain();
+
+        PFN_vkDestroyDevice fp_destroy_device{};
+        if (fp_destroy_device)
+        {
+            fp_destroy_device(_device, nullptr);
+        }
+
+        PFN_vkDestroySurfaceKHR fp_destroy_surface_KHR{}; // TODO: Redefine elsewhere
+        if (fp_destroy_surface_KHR)
+        {
+            fp_destroy_surface_KHR(_instance, _surface, nullptr);
+        }
+
+        vkb::destroy_debug_utils_messenger(_instance, _debug_messenger, nullptr);
+
         SDL_DestroyWindow(_window);
     }
 
@@ -55,7 +201,7 @@ void VulkanEngine::cleanup()
 
 void VulkanEngine::draw() {}
 
-//==> DRAW LOOP
+//==> MAIN LOOP
 void VulkanEngine::run()
 {
     SDL_Event e;
@@ -106,4 +252,4 @@ void VulkanEngine::run()
         draw();
     }
 }
-//<== DRAW LOOP
+//<== MAIN LOOP
