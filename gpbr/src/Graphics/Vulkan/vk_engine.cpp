@@ -43,6 +43,12 @@ void VulkanEngine::init()
                                window_flags                          //
     );
 
+    // Query Vulkan function pointers
+
+    // PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkDestroyDevice);
+
+    // SDL_Vulkan_GetVkGetInstanceProcAddr();
+
     init_vulkan();
 
     init_swapchain();
@@ -105,8 +111,12 @@ void VulkanEngine::init_vulkan()
     _device         = vkb_device.device;
     _chosen_GPU     = physical_device.physical_device;
     _dispatch_table = vkb_device.make_table();
-
     //<== INIT DEVICE
+
+    //==> LOAD VULKAN ENTRYPOINTS
+    volkInitialize();
+    volkLoadInstance(_instance);
+    //<== LOAD VULKAN ENTRYPOINTS
 
     //==> INIT QUEUE
     // get graphics queue
@@ -148,12 +158,12 @@ void VulkanEngine::init_sync_structures() {}
 
 void VulkanEngine::destroy_swapchain()
 {
-    _dispatch_table.fp_vkDestroySwapchainKHR(_device, _swapchain, nullptr);
+    vkDestroySwapchainKHR(_device, _swapchain, nullptr);
 
     // destroy swapchain resources
     for (int i = 0; i < _swapchain_image_views.size(); i++)
     {
-        _dispatch_table.fp_vkDestroyImageView(_device, _swapchain_image_views[i], nullptr);
+        vkDestroyImageView(_device, _swapchain_image_views[i], nullptr);
     }
 }
 
@@ -161,19 +171,16 @@ void VulkanEngine::cleanup()
 {
     if (_is_initialized)
     {
-
         destroy_swapchain();
 
-        _instance_dispatch_table.fp_vkDestroySurfaceKHR(_instance, _surface, nullptr);
+        vkDestroySurfaceKHR(_instance, _surface, nullptr);
 
-        PFN_vkDestroyDevice fp_destroy_device{};
-        if (fp_destroy_device)
-        {
-            fp_destroy_device(_device, nullptr);
-        }
+        vkDestroyDevice(_device, nullptr);
 
         vkb::destroy_debug_utils_messenger(_instance, _debug_messenger, nullptr);
-        _instance_dispatch_table.fp_vkDestroyInstance(_instance, nullptr);
+
+        vkDestroyInstance(_instance, nullptr);
+
         SDL_DestroyWindow(_window);
     }
 
