@@ -1,4 +1,6 @@
 //==> INCLUDES
+#define VOLK_IMPLEMENTATION
+#include "Volk/volk.h"
 #include "gpbr/Graphics/Vulkan/vk_engine.h"
 
 #include <SDL3/SDL.h>
@@ -42,12 +44,6 @@ void VulkanEngine::init()
                                _window_extent.height,                //
                                window_flags                          //
     );
-
-    // Query Vulkan function pointers
-
-    // PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = (PFN_vkDestroyDevice);
-
-    // SDL_Vulkan_GetVkGetInstanceProcAddr();
 
     init_vulkan();
 
