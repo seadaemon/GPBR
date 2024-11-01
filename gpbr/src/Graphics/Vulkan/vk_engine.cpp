@@ -8,7 +8,10 @@
 
 #include <gpbr/Graphics/Vulkan/vk_initializers.h>
 #include <gpbr/Graphics/Vulkan/vk_types.h>
+#include <gpbr/Graphics/Vulkan/vk_images.h>
 
+#include "VkBootstrap.h"
+#include <array>
 #include <chrono>
 #include <thread>
 //<== INCLUDES
@@ -69,10 +72,9 @@ void VulkanEngine::init_vulkan()
                         .require_api_version(1, 3, 0)                     //
                         .build();
 
-    vkb::Instance vkb_inst   = inst_ret.value();
-    _instance                = vkb_inst.instance;
-    _debug_messenger         = vkb_inst.debug_messenger;
-    _instance_dispatch_table = vkb_inst.make_table();
+    vkb::Instance vkb_inst = inst_ret.value();
+    _instance              = vkb_inst.instance;
+    _debug_messenger       = vkb_inst.debug_messenger;
     //<== INIT INSTANCE
 
     //==> INIT DEVICE
@@ -104,9 +106,8 @@ void VulkanEngine::init_vulkan()
     vkb::Device vkb_device = device_builder.build().value();
 
     // get device handle;
-    _device         = vkb_device.device;
-    _chosen_GPU     = physical_device.physical_device;
-    _dispatch_table = vkb_device.make_table();
+    _device     = vkb_device.device;
+    _chosen_GPU = physical_device.physical_device;
     //<== INIT DEVICE
 
     //==> LOAD VULKAN ENTRYPOINTS

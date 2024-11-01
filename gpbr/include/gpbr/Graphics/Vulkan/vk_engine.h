@@ -1,7 +1,7 @@
 #pragma once
 
 #include "vk_types.h"
-#include "VkBootstrap.h"
+#include <vector>
 
 struct FrameData
 {
@@ -25,8 +25,8 @@ class VulkanEngine
 
     static VulkanEngine& get();
 
-    vkb::InstanceDispatchTable _instance_dispatch_table;
-    vkb::DispatchTable _dispatch_table;
+    // vkb::InstanceDispatchTable _instance_dispatch_table;
+    // vkb::DispatchTable _dispatch_table;
 
     VkInstance _instance;                      // Vulkan library handle
     VkDebugUtilsMessengerEXT _debug_messenger; // debug output handle
