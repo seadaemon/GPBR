@@ -3,7 +3,9 @@ add_subdirectory(third_party)
 add_executable(gpbr
 	src/main.cpp
 	src/Graphics/Vulkan/vk_engine.cpp
- "include/gpbr/Graphics/Vulkan/vk_initializers.h")
+    src/Graphics/Vulkan/vk_initializers.cpp
+	src/Graphics/Vulkan/vk_images.cpp
+)
 set_target_properties(gpbr PROPERTIES
   CXX_STANDARD 20
   CXX_EXTENSIONS OFF
@@ -65,6 +67,7 @@ target_link_libraries(gpbr
 target_compile_definitions(gpbr
 	PUBLIC
 		VK_NO_PROTOTYPES
+		#VK_USE_64_BIT_PTR_DEFINES=1
 		VMA_VULKAN_VERSION=1003000
 )
 

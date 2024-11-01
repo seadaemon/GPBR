@@ -2,6 +2,8 @@ add_executable(gpbr
 	Graphics/Vulkan/vk_types.cpp
     Graphics/Vulkan/vk_engine.cpp
     Graphics/Vulkan/vk_initializers.cpp
+    Graphics/Vulkan/vk_images.cpp
+    Graphics/Vulkan/volk_impl.cpp
 )
 set_target_properties(gpbr PROPERTIES
     CXX_STANDARD 20
@@ -10,13 +12,14 @@ set_target_properties(gpbr PROPERTIES
 target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 
 target_link_libraries(gpbr PUBLIC
-	Vulkan::volk
+    Vulkan::volk
 	vk-bootstrap::vk-bootstrap
 	fmt::fmt
 )
 target_compile_definitions(gpbr
   PUBLIC
     VK_NO_PROTOTYPES
+    #VK_USE_64_BIT_PTR_DEFINES=1
     VMA_VULKAN_VERSION=1003000
 )
 # SDL

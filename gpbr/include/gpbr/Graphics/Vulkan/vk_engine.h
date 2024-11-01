@@ -2,19 +2,35 @@
 
 #include "vk_types.h"
 #include "VkBootstrap.h"
-#include "Volk/volk.h"
+#include "volk_impl.h"
+
+struct FrameData
+{
+    VkSemaphore _swapchain_semaphore, _render_semaphore;
+    VkFence _render_fence;
+
+    VkCommandPool _command_pool;
+    VkCommandBuffer _main_command_buffer;
+};
+
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine
 {
   public:
     bool _is_initialized{false};
+
     int _frame_number{0};
+    FrameData _frames[FRAME_OVERLAP];
+
     bool _stop_rendering{false};
     VkExtent2D _window_extent{1700, 900};
 
     struct SDL_Window* _window{nullptr};
 
     static VulkanEngine& get();
+
+    FrameData& get_current_frame() { return _frames[_frame_number % FRAME_OVERLAP]; };
 
     // initializes everything in the engine
     void init();
@@ -36,6 +52,8 @@ class VulkanEngine
     VkPhysicalDevice _chosen_GPU;              // selected GPU
     VkDevice _device;                          // device for commands
     VkSurfaceKHR _surface;                     // window surface
+    VkQueue _graphics_queue;
+    uint32_t _graphics_queue_family;
 
     VkSwapchainKHR _swapchain;
     VkFormat _swapchain_image_format;
