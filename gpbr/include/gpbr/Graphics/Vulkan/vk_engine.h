@@ -1,6 +1,3 @@
-// TODO
-// GO BACK TO SNAKE CASE !!!!
-
 #pragma once
 
 #include "vk_types.h"
