@@ -8,3 +8,4 @@ function(copy_runtime_resources target)
 	  COMMAND_EXPAND_LISTS
 	)
 endfunction()
+# TODO: Improve this such that only .spv files are copied over
