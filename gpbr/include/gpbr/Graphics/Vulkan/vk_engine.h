@@ -40,9 +40,6 @@ class VulkanEngine
 
     FrameData& get_current_frame() { return _frames[_frame_number % FRAME_OVERLAP]; };
 
-    VkQueue _graphics_queue;
-    uint32_t _graphics_queue_family;
-
     VkSwapchainKHR _swapchain;
     VkFormat _swapchain_image_format;
 
