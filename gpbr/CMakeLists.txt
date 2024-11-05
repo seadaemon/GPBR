@@ -63,7 +63,9 @@ target_link_libraries(gpbr
 	PUBLIC
 		Vulkan::volk
 		vk-bootstrap::vk-bootstrap
+
 		fmt::fmt
+		imgui::imgui
 )
 
 target_compile_definitions(gpbr

@@ -16,6 +16,44 @@ if (BUILD_SHARED_LIBS)
   )
 endif()
 
+# Dear ImGui
+set(IMGUI_SOURCES
+    "imgui.cpp"
+    "imgui_draw.cpp"
+    "imgui_tables.cpp"
+    "imgui_widgets.cpp"
+    "imgui_demo.cpp"
+    # C++ additions
+    "misc/cpp/imgui_stdlib.cpp"
+    # backend
+    "backends/imgui_impl_sdl3.cpp"
+)
+
+list(TRANSFORM IMGUI_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/imgui/")
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_include_directories(imgui
+    PUBLIC
+        "imgui"
+        "imgui/backends"
+)
+
+if(BUILD_SHARED_LIBS)
+  target_link_libraries(imgui
+    PUBLIC
+      SDL3::SDL3
+  )
+else()
+  target_link_libraries(imgui
+    PUBLIC
+      SDL3::SDL3-static
+  )
+endif()
+
+add_library(imgui::imgui ALIAS imgui)
+
 # fmt
 add_subdirectory(fmt)
 set_target_properties(fmt PROPERTIES

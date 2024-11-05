@@ -15,6 +15,9 @@ target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 target_link_libraries(gpbr PUBLIC
     Vulkan::volk
 	vk-bootstrap::vk-bootstrap
+
+    imgui::imgui
+
 	fmt::fmt
 )
 target_compile_definitions(gpbr

@@ -7,3 +7,6 @@
 [submodule "gpbr/third_party/fmt"]
 	path = gpbr/third_party/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "gpbr/third_party/imgui"]
+	path = gpbr/third_party/imgui
+	url = https://github.com/ocornut/imgui.git
