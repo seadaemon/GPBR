@@ -5,6 +5,7 @@
 #include "vma/vk_mem_alloc.h"
 #include <deque>
 #include <functional>
+#include "vk_descriptors.h"
 
 // A FILO queue that stores function callbacks
 struct DeletionQueue
@@ -69,6 +70,18 @@ class VulkanEngine
     VkExtent2D _swapchain_extent;
     VkExtent2D _draw_extent;
 
+    DescriptorAllocator global_descriptor_allocator;
+    /*
+    VkPipeline _gradientPipeline;
+    VkPipelineLayout _gradientPipelineLayout;
+
+    std::vector<VkFramebuffer> _framebuffers;
+    std::vector<VkImage> _swapchainImages;
+    std::vector<VkImageView> _swapchainImageViews;
+    */
+    VkDescriptorSet _draw_image_descriptors;
+    VkDescriptorSetLayout _draw_image_descriptor_layout;
+
     DeletionQueue _main_deletion_queue;
 
     VmaAllocator _allocator;
@@ -99,6 +112,10 @@ class VulkanEngine
     void destroy_swapchain();
 
     void init_commands();
+
+    // void init_pipelines();
+
+    void init_descriptors();
 
     void init_sync_structures();
 };
