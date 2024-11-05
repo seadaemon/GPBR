@@ -3,7 +3,7 @@ add_subdirectory(third_party)
 add_executable(gpbr
 	src/main.cpp
 	src/Graphics/Vulkan/vk_engine.cpp
-    src/Graphics/Vulkan/vk_initializers.cpp
+	src/Graphics/Vulkan/vk_initializers.cpp
 	src/Graphics/Vulkan/vk_images.cpp
 )
 set_target_properties(gpbr PROPERTIES
