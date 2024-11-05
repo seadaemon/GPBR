@@ -6,6 +6,7 @@
 #include <deque>
 #include <functional>
 
+// A FILO queue that stores function callbacks
 struct DeletionQueue
 {
     std::deque<std::function<void()>> deletors;
@@ -31,6 +32,8 @@ struct FrameData
 
     VkCommandPool _command_pool;
     VkCommandBuffer _main_command_buffer;
+
+    DeletionQueue _deletion_queue;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -64,6 +67,10 @@ class VulkanEngine
     std::vector<VkImage> _swapchain_images;
     std::vector<VkImageView> _swapchain_image_views;
     VkExtent2D _swapchain_extent;
+
+    DeletionQueue _main_deletion_queue;
+
+    VmaAllocator _allocator;
 
     // initializes everything in the engine
     void init();

@@ -6,14 +6,19 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
-#include <gpbr/Graphics/Vulkan/vk_initializers.h>
 #include <gpbr/Graphics/Vulkan/vk_types.h>
-#include <gpbr/Graphics/Vulkan/vk_images.h>
+#include <gpbr/Graphics/Vulkan/vk_initializers.h>
 
 #include "VkBootstrap.h"
 #include <array>
 #include <chrono>
 #include <thread>
+
+#define VMA_IMPLEMENTATION
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#include "vma/vk_mem_alloc.h"
+#include <gpbr/Graphics/Vulkan/vk_images.h>
 //<== INCLUDES
 
 //==> INIT
@@ -85,7 +90,11 @@ void VulkanEngine::cleanup()
             vkDestroyFence(_device, _frames[i]._render_fence, nullptr);
             vkDestroySemaphore(_device, _frames[i]._render_semaphore, nullptr);
             vkDestroySemaphore(_device, _frames[i]._swapchain_semaphore, nullptr);
+
+            _frames[i]._deletion_queue.flush();
         }
+
+        _main_deletion_queue.flush();
 
         destroy_swapchain();
 
@@ -106,12 +115,15 @@ void VulkanEngine::draw()
     // wait until the gpu has finished rendering the last frame
     // 1 second timeout
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._render_fence, true, 1000000000));
-    VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._render_fence));
+
+    get_current_frame()._deletion_queue.flush();
 
     // request image from the swapchain
     uint32_t swapchain_image_index;
     VK_CHECK(vkAcquireNextImageKHR(
         _device, _swapchain, 1000000000, get_current_frame()._swapchain_semaphore, nullptr, &swapchain_image_index));
+
+    VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._render_fence));
 
     // naming it cmd for shorter writing
     VkCommandBuffer cmd = get_current_frame()._main_command_buffer;
@@ -292,15 +304,54 @@ void VulkanEngine::init_vulkan()
     _chosen_GPU = physical_device.physical_device;
     //<== INIT DEVICE
 
-    //==> LOAD VULKAN ENTRYPOINTS
+    // load vulkan function entrypoints using VOLK
     volkInitialize();
     volkLoadInstance(_instance);
-    //<== LOAD VULKAN ENTRYPOINTS
+    volkLoadDevice(_device);
 
-    //==> INIT QUEUE
+    // get a graphics queue using vkbootstrap
     _graphics_queue        = vkb_device.get_queue(vkb::QueueType::graphics).value();
     _graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
-    //<== INIT QUEUE
+
+    // gather Vulkan functions for VMA
+    VmaVulkanFunctions vma_funcs                      = {};
+    vma_funcs.vkGetInstanceProcAddr                   = vkGetInstanceProcAddr;
+    vma_funcs.vkGetDeviceProcAddr                     = vkGetDeviceProcAddr;
+    vma_funcs.vkGetPhysicalDeviceProperties           = vkGetPhysicalDeviceProperties;
+    vma_funcs.vkGetPhysicalDeviceMemoryProperties     = vkGetPhysicalDeviceMemoryProperties;
+    vma_funcs.vkAllocateMemory                        = vkAllocateMemory;
+    vma_funcs.vkFreeMemory                            = vkFreeMemory;
+    vma_funcs.vkMapMemory                             = vkMapMemory;
+    vma_funcs.vkUnmapMemory                           = vkUnmapMemory;
+    vma_funcs.vkFlushMappedMemoryRanges               = vkFlushMappedMemoryRanges;
+    vma_funcs.vkInvalidateMappedMemoryRanges          = vkInvalidateMappedMemoryRanges;
+    vma_funcs.vkBindBufferMemory                      = vkBindBufferMemory;
+    vma_funcs.vkBindImageMemory                       = vkBindImageMemory;
+    vma_funcs.vkGetBufferMemoryRequirements           = vkGetBufferMemoryRequirements;
+    vma_funcs.vkGetImageMemoryRequirements            = vkGetImageMemoryRequirements;
+    vma_funcs.vkCreateBuffer                          = vkCreateBuffer;
+    vma_funcs.vkDestroyBuffer                         = vkDestroyBuffer;
+    vma_funcs.vkCreateImage                           = vkCreateImage;
+    vma_funcs.vkDestroyImage                          = vkDestroyImage;
+    vma_funcs.vkCmdCopyBuffer                         = vkCmdCopyBuffer;
+    vma_funcs.vkGetBufferMemoryRequirements2KHR       = vkGetBufferMemoryRequirements2;
+    vma_funcs.vkGetImageMemoryRequirements2KHR        = vkGetImageMemoryRequirements2;
+    vma_funcs.vkBindBufferMemory2KHR                  = vkBindBufferMemory2;
+    vma_funcs.vkBindImageMemory2KHR                   = vkBindImageMemory2;
+    vma_funcs.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2;
+    vma_funcs.vkGetDeviceBufferMemoryRequirements     = vkGetDeviceBufferMemoryRequirements;
+    vma_funcs.vkGetDeviceImageMemoryRequirements      = vkGetDeviceImageMemoryRequirements;
+
+    // initialize the memory allocator
+    VmaAllocatorCreateInfo allocator_info = {};
+    allocator_info.pVulkanFunctions       = &vma_funcs;
+    allocator_info.physicalDevice         = _chosen_GPU;
+    allocator_info.device                 = _device;
+    allocator_info.instance               = _instance;
+    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vmaCreateAllocator(&allocator_info, &_allocator);
+
+    _main_deletion_queue.push_function([&]() { vmaDestroyAllocator(_allocator); });
 }
 
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
