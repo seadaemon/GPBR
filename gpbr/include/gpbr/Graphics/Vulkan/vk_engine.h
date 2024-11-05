@@ -28,14 +28,13 @@ class VulkanEngine
 
     static VulkanEngine& get();
 
-    // vkb::InstanceDispatchTable _instance_dispatch_table;
-    // vkb::DispatchTable _dispatch_table;
-
     VkInstance _instance;                      // Vulkan library handle
     VkDebugUtilsMessengerEXT _debug_messenger; // debug output handle
     VkPhysicalDevice _chosen_GPU;              // selected GPU
     VkDevice _device;                          // device for commands
     VkSurfaceKHR _surface;                     // window surface
+    VkQueue _graphics_queue;
+    uint32_t _graphics_queue_family;
 
     FrameData _frames[FRAME_OVERLAP];
 

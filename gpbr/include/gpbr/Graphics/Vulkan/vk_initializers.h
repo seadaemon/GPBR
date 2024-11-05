@@ -1,6 +1,5 @@
-// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
-
+// vk_initializers.h
+// abstracts initialization of Vulkan structures
 #pragma once
 
 #include "vk_types.h"

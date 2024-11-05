@@ -67,6 +67,7 @@ target_link_libraries(gpbr
 target_compile_definitions(gpbr
 	PUBLIC
 		VK_NO_PROTOTYPES
+		#VK_USE_64_BIT_PTR_DEFINES=1
 		VMA_VULKAN_VERSION=1003000
 )
 
