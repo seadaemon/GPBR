@@ -6,6 +6,7 @@ add_executable(gpbr
 	src/Graphics/Vulkan/vk_initializers.cpp
 	src/Graphics/Vulkan/vk_images.cpp
 	src/Graphics/Vulkan/vk_descriptors.cpp
+	src/Graphics/Vulkan/vk_pipelines.cpp
 )
 set_target_properties(gpbr PROPERTIES
   CXX_STANDARD 20
