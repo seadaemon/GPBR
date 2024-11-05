@@ -94,5 +94,9 @@ target_compile_definitions(gpbr
     GLM_ENABLE_EXPERIMENTAL
 )
 
-# copy dlls to the same folder as the executable
+# copy files to the same folder as the executable
+
+# copy dlls
 copy_runtime_dlls(gpbr)
+# copy resources (e.g. shaders, models, etc.)
+copy_runtime_resources(gpbr)

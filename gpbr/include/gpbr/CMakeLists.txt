@@ -42,3 +42,7 @@ target_compile_definitions(gpbr
     GLM_FORCE_DEPTH_ZERO_TO_ONE
     GLM_ENABLE_EXPERIMENTAL
 )
+
+set(SHADERS
+    gradient.comp
+)

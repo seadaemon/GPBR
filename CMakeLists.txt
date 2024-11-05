@@ -8,6 +8,7 @@ project(
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CopyRuntimeDLLs)
+include(CopyRuntimeResources)
 
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Dynamic linking of libraries")
 

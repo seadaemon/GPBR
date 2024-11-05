@@ -71,10 +71,10 @@ class VulkanEngine
     VkExtent2D _draw_extent;
 
     DescriptorAllocator global_descriptor_allocator;
-    /*
-    VkPipeline _gradientPipeline;
-    VkPipelineLayout _gradientPipelineLayout;
 
+    VkPipeline _gradient_pipeline;
+    VkPipelineLayout _gradient_pipeline_layout;
+    /*
     std::vector<VkFramebuffer> _framebuffers;
     std::vector<VkImage> _swapchainImages;
     std::vector<VkImageView> _swapchainImageViews;
@@ -113,7 +113,8 @@ class VulkanEngine
 
     void init_commands();
 
-    // void init_pipelines();
+    void init_pipelines();
+    void init_background_pipelines();
 
     void init_descriptors();
 

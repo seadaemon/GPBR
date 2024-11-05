@@ -19,6 +19,8 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #include "vma/vk_mem_alloc.h"
 #include <gpbr/Graphics/Vulkan/vk_images.h>
+#include <gpbr/Graphics/Vulkan/vk_pipelines.h>
+#include <gpbr/Graphics/Vulkan/vk_descriptors.h>
 //<== INCLUDES
 
 //==> INIT
@@ -63,7 +65,7 @@ void VulkanEngine::init()
 
     init_descriptors();
 
-    // init_pipelines();
+    init_pipelines();
 
     _is_initialized = true;
 }
@@ -478,6 +480,53 @@ void VulkanEngine::init_sync_structures()
     }
 }
 
+void VulkanEngine::init_pipelines()
+{
+    init_background_pipelines();
+}
+
+void VulkanEngine::init_background_pipelines()
+{
+    VkPipelineLayoutCreateInfo compute_layout{};
+    compute_layout.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    compute_layout.pNext          = nullptr;
+    compute_layout.pSetLayouts    = &_draw_image_descriptor_layout;
+    compute_layout.setLayoutCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(_device, &compute_layout, nullptr, &_gradient_pipeline_layout));
+
+    VkShaderModule compute_draw_shader;
+    if (!vkutil::load_shader_module("./Shaders/gradient_comp.spv", _device, &compute_draw_shader))
+    {
+        fmt::print("Error when building the compute shader\n");
+    }
+
+    VkPipelineShaderStageCreateInfo stage_info{};
+    stage_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stage_info.pNext  = nullptr;
+    stage_info.stage  = VK_SHADER_STAGE_COMPUTE_BIT;
+    stage_info.module = compute_draw_shader;
+    stage_info.pName  = "main";
+
+    VkComputePipelineCreateInfo compute_pipeline_create_info{};
+    compute_pipeline_create_info.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    compute_pipeline_create_info.pNext  = nullptr;
+    compute_pipeline_create_info.layout = _gradient_pipeline_layout;
+    compute_pipeline_create_info.stage  = stage_info;
+
+    VK_CHECK(vkCreateComputePipelines(
+        _device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &_gradient_pipeline));
+
+    vkDestroyShaderModule(_device, compute_draw_shader, nullptr);
+
+    _main_deletion_queue.push_function(
+        [&]()
+        {
+            vkDestroyPipelineLayout(_device, _gradient_pipeline_layout, nullptr);
+            vkDestroyPipeline(_device, _gradient_pipeline, nullptr);
+        });
+}
+
 void VulkanEngine::init_descriptors()
 {
     // create a descriptor pool that will hold 10 sets with 1 image each
@@ -493,9 +542,7 @@ void VulkanEngine::init_descriptors()
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         _draw_image_descriptor_layout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
     }
-    //< init_desc_1
-    //
-    //> init_desc_2
+
     // allocate a descriptor set for our draw image
     _draw_image_descriptors = global_descriptor_allocator.allocate(_device, _draw_image_descriptor_layout);
 
@@ -523,5 +570,4 @@ void VulkanEngine::init_descriptors()
 
             vkDestroyDescriptorSetLayout(_device, _draw_image_descriptor_layout, nullptr);
         });
-    //< init_desc_2
 }
