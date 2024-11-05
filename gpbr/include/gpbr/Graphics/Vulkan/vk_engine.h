@@ -67,10 +67,13 @@ class VulkanEngine
     std::vector<VkImage> _swapchain_images;
     std::vector<VkImageView> _swapchain_image_views;
     VkExtent2D _swapchain_extent;
+    VkExtent2D _draw_extent;
 
     DeletionQueue _main_deletion_queue;
 
     VmaAllocator _allocator;
+
+    AllocatedImage _draw_image;
 
     // initializes everything in the engine
     void init();
@@ -80,6 +83,8 @@ class VulkanEngine
 
     // draw loop
     void draw();
+
+    void draw_background(VkCommandBuffer cmd);
 
     // run main loop
     void run();
