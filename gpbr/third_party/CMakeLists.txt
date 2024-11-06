@@ -27,18 +27,33 @@ set(IMGUI_SOURCES
     "misc/cpp/imgui_stdlib.cpp"
     # backend
     "backends/imgui_impl_sdl3.cpp"
+    "backends/imgui_impl_vulkan.h"
+    "backends/imgui_impl_vulkan.cpp"
 )
 
 list(TRANSFORM IMGUI_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/imgui/")
 
 add_library(imgui STATIC ${IMGUI_SOURCES})
-set_target_properties(imgui PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(imgui
+    PROPERTIES POSITION_INDEPENDENT_CODE ON
+)
 
 target_include_directories(imgui
     PUBLIC
         "imgui"
         "imgui/backends"
 )
+
+# Fix include issues
+find_package(Vulkan REQUIRED)
+if(Vulkan_FOUND)
+    target_include_directories(imgui PUBLIC ${Vulkan_INCLUDE_DIRS}) 
+endif()
+
+if(Vulkan_volk_FOUND)
+    target_include_directories(imgui PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
+endif()
+
 
 if(BUILD_SHARED_LIBS)
   target_link_libraries(imgui

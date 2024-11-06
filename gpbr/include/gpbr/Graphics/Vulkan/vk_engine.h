@@ -44,6 +44,7 @@ class VulkanEngine
   public:
     bool _is_initialized{false};
     int _frame_number{0};
+    bool _stop_rendering{false};
     VkExtent2D _window_extent{1700, 900};
 
     struct SDL_Window* _window{nullptr};
@@ -86,6 +87,11 @@ class VulkanEngine
 
     VmaAllocator _allocator;
 
+    // immediate submit structures
+    VkFence _imm_fence;
+    VkCommandBuffer _imm_command_buffer;
+    VkCommandPool _imm_command_pool;
+
     AllocatedImage _draw_image;
 
     // initializes everything in the engine
@@ -102,7 +108,7 @@ class VulkanEngine
     // run main loop
     void run();
 
-    bool _stop_rendering{false};
+    void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
   private:
     void init_vulkan();
@@ -119,4 +125,6 @@ class VulkanEngine
     void init_descriptors();
 
     void init_sync_structures();
+
+    void init_imgui();
 };
