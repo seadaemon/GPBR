@@ -147,6 +147,19 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
 
+void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
+{
+    VkRenderingAttachmentInfo color_attachment =
+        vkinit::attachment_info(target_image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo render_info = vkinit::rendering_info(_swapchain_extent, &color_attachment, nullptr);
+
+    vkCmdBeginRendering(cmd, &render_info);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+    vkCmdEndRendering(cmd);
+}
+
 void VulkanEngine::draw()
 {
     // wait until the gpu has finished rendering the last frame. Timeout of 1 second
@@ -191,10 +204,19 @@ void VulkanEngine::draw()
     vkutil::copy_image_to_image(
         cmd, _draw_image.image, _swapchain_images[swapchain_image_index], _draw_extent, _swapchain_extent);
 
-    // set swapchain image layout to Present
+    // set swapchain image layout to Attachment Optimal for drawing
     vkutil::transition_image(cmd,
                              _swapchain_images[swapchain_image_index],
                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // draw imgui into the swapchain image
+    draw_imgui(cmd, _swapchain_image_views[swapchain_image_index]);
+
+    // set swapchain image layout to Present so we can draw it
+    vkutil::transition_image(cmd,
+                             _swapchain_images[swapchain_image_index],
+                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     // finalize the command buffer (we can no longer add commands, but it can now be executed)
@@ -264,6 +286,8 @@ void VulkanEngine::run()
             }
             //<== WINDOW EVENTS
 
+            ImGui_ImplSDL3_ProcessEvent(&e);
+
             //==> INPUT EVENTS
             if (e.key.type == SDL_EVENT_KEY_DOWN)
             {
@@ -284,6 +308,17 @@ void VulkanEngine::run()
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
+
+        // imgui new frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        // some imgui UI to test
+        ImGui::ShowDemoWindow();
+
+        // make imgui calculate internal draw structures
+        ImGui::Render();
 
         draw();
     }
@@ -569,7 +604,7 @@ void VulkanEngine::init_imgui()
 
     // 2: initialize imgui library
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
+    // ImGuiIO& io = ImGui::GetIO();
 
     ImGui_ImplSDL3_InitForVulkan(_window);
 

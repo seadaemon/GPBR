@@ -104,6 +104,7 @@ class VulkanEngine
     void draw();
 
     void draw_background(VkCommandBuffer cmd);
+    void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
 
     // run main loop
     void run();
