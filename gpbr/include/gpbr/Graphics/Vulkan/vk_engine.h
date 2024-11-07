@@ -108,6 +108,11 @@ class VulkanEngine
     VkPipeline _triangle_pipeline;
     VkPipelineLayout _triangle_pipeline_layout;
 
+    VkPipeline _mesh_pipeline;
+    VkPipelineLayout _mesh_pipeline_layout;
+
+    GPUMeshBuffers rectangle;
+
     // immediate submit structures
     VkFence _imm_fence;
     VkCommandBuffer _imm_command_buffer;
@@ -137,6 +142,11 @@ class VulkanEngine
 
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+    GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
+
+    AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
+    void destroy_buffer(const AllocatedBuffer& buffer);
+
   private:
     void init_vulkan();
 
@@ -151,9 +161,13 @@ class VulkanEngine
 
     void init_triangle_pipeline();
 
+    void init_mesh_pipeline();
+
     void init_descriptors();
 
     void init_sync_structures();
 
     void init_imgui();
+
+    void init_default_data();
 };

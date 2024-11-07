@@ -72,8 +72,7 @@ struct MaterialInstance
     VkDescriptorSet materialSet;
     MaterialPass passType;
 };
-//< mat_types
-//> vbuf_types
+
 struct Vertex
 {
 
@@ -88,20 +87,18 @@ struct Vertex
 struct GPUMeshBuffers
 {
 
-    AllocatedBuffer indexBuffer;
-    AllocatedBuffer vertexBuffer;
-    VkDeviceAddress vertexBufferAddress;
+    AllocatedBuffer index_buffer;
+    AllocatedBuffer vertex_buffer;
+    VkDeviceAddress vertex_buffer_address;
 };
 
-// push constants for our mesh object draws
+// push constants for mesh object draws
 struct GPUDrawPushConstants
 {
-    glm::mat4 worldMatrix;
-    VkDeviceAddress vertexBuffer;
+    glm::mat4 world_matrix;
+    VkDeviceAddress vertex_buffer;
 };
-//< vbuf_types
 
-//> node_types
 struct DrawContext;
 
 // base class for a renderable dynamic object
