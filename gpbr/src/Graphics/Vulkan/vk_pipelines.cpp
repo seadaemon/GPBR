@@ -5,7 +5,7 @@
 
 void PipelineBuilder::clear()
 {
-    // clear all of the structs we need back to 0 with their correct stype
+    // clear all structs and provide their correct sType
 
     _input_assembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 
@@ -28,71 +28,63 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
 {
     // make viewport state from our stored viewport and scissor.
     // at the moment we wont support multiple viewports or scissors
-    VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.pNext                             = nullptr;
+    VkPipelineViewportStateCreateInfo viewport_state = {};
+    viewport_state.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.pNext                             = nullptr;
 
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount  = 1;
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount  = 1;
 
     // setup dummy color blending. We arent using transparent objects yet
     // the blending is just "no blend", but we do write to the color attachment
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.pNext                               = nullptr;
+    VkPipelineColorBlendStateCreateInfo color_blending = {};
+    color_blending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    color_blending.pNext                               = nullptr;
 
-    colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.logicOp         = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments    = &_color_blend_attachment;
+    color_blending.logicOpEnable   = VK_FALSE;
+    color_blending.logicOp         = VK_LOGIC_OP_COPY;
+    color_blending.attachmentCount = 1;
+    color_blending.pAttachments    = &_color_blend_attachment;
 
     // completely clear VertexInputStateCreateInfo, as we have no need for it
-    VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {
+    VkPipelineVertexInputStateCreateInfo vertex_input_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-    //< build_pipeline_1
-
-    //> build_pipeline_2
     // build the actual pipeline
     // we now use all of the info structs we have been writing into into this one
     // to create the pipeline
-    VkGraphicsPipelineCreateInfo pipelineInfo = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    VkGraphicsPipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     // connect the renderInfo to the pNext extension mechanism
-    pipelineInfo.pNext = &_render_info;
+    pipeline_info.pNext = &_render_info;
 
-    pipelineInfo.stageCount          = (uint32_t)_shader_stages.size();
-    pipelineInfo.pStages             = _shader_stages.data();
-    pipelineInfo.pVertexInputState   = &_vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &_input_assembly;
-    pipelineInfo.pViewportState      = &viewportState;
-    pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pMultisampleState   = &_multisampling;
-    pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDepthStencilState  = &_depth_stencil;
-    pipelineInfo.layout              = _pipeline_layout;
+    pipeline_info.stageCount          = (uint32_t)_shader_stages.size();
+    pipeline_info.pStages             = _shader_stages.data();
+    pipeline_info.pVertexInputState   = &vertex_input_info;
+    pipeline_info.pInputAssemblyState = &_input_assembly;
+    pipeline_info.pViewportState      = &viewport_state;
+    pipeline_info.pRasterizationState = &_rasterizer;
+    pipeline_info.pMultisampleState   = &_multisampling;
+    pipeline_info.pColorBlendState    = &color_blending;
+    pipeline_info.pDepthStencilState  = &_depth_stencil;
+    pipeline_info.layout              = _pipeline_layout;
 
-    //< build_pipeline_2
-    //> build_pipeline_3
     VkDynamicState state[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-    VkPipelineDynamicStateCreateInfo dynamicInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dynamicInfo.pDynamicStates                   = &state[0];
-    dynamicInfo.dynamicStateCount                = 2;
+    VkPipelineDynamicStateCreateInfo dynamic_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+    dynamic_info.pDynamicStates                   = &state[0];
+    dynamic_info.dynamicStateCount                = 2;
 
-    pipelineInfo.pDynamicState = &dynamicInfo;
-    //< build_pipeline_3
-    //> build_pipeline_4
-    // its easy to error out on create graphics pipeline, so we handle it a bit
-    // better than the common VK_CHECK case
-    VkPipeline newPipeline;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS)
+    pipeline_info.pDynamicState = &dynamic_info;
+
+    VkPipeline new_pipeline;
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &new_pipeline) != VK_SUCCESS)
     {
         fmt::println("failed to create pipeline");
-        return VK_NULL_HANDLE; // failed to create graphics pipeline
+        return VK_NULL_HANDLE;
     }
     else
     {
-        return newPipeline;
+        return new_pipeline;
     }
 }
 
@@ -107,9 +99,7 @@ void PipelineBuilder::set_shaders(VkShaderModule vertex_shader, VkShaderModule f
 
 void PipelineBuilder::set_input_topology(VkPrimitiveTopology topology)
 {
-    _input_assembly.topology = topology;
-    // we are not going to use primitive restart on the entire tutorial so leave
-    // it on false
+    _input_assembly.topology               = topology;
     _input_assembly.primitiveRestartEnable = VK_FALSE;
 }
 
@@ -175,7 +165,7 @@ void PipelineBuilder::enable_blending_alphablend()
 void PipelineBuilder::set_color_attachment_format(VkFormat format)
 {
     _color_attachment_format = format;
-    // connect the format to the renderInfo  structure
+    // connect the format to the render_info  structure
     _render_info.colorAttachmentCount    = 1;
     _render_info.pColorAttachmentFormats = &_color_attachment_format;
 }
