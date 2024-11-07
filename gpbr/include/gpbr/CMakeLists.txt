@@ -3,6 +3,8 @@ add_executable(gpbr
     Graphics/Vulkan/vk_engine.cpp
     Graphics/Vulkan/vk_initializers.cpp
     Graphics/Vulkan/vk_images.cpp
+    Graphics/Vulkan/vk_descriptors.cpp
+    Graphics/Vulkan/vk_pipelines.cpp
 )
 set_target_properties(gpbr PROPERTIES
     CXX_STANDARD 20
@@ -13,6 +15,9 @@ target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 target_link_libraries(gpbr PUBLIC
     Vulkan::volk
 	vk-bootstrap::vk-bootstrap
+
+    imgui::imgui
+
 	fmt::fmt
 )
 target_compile_definitions(gpbr
