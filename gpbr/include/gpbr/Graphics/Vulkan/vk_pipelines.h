@@ -4,29 +4,28 @@
 
 class PipelineBuilder
 {
-    //> pipeline
   public:
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
+    std::vector<VkPipelineShaderStageCreateInfo> _shader_stages;
 
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
+    VkPipelineInputAssemblyStateCreateInfo _input_assembly;
     VkPipelineRasterizationStateCreateInfo _rasterizer;
-    VkPipelineColorBlendAttachmentState _colorBlendAttachment;
+    VkPipelineColorBlendAttachmentState _color_blend_attachment;
     VkPipelineMultisampleStateCreateInfo _multisampling;
-    VkPipelineLayout _pipelineLayout;
-    VkPipelineDepthStencilStateCreateInfo _depthStencil;
-    VkPipelineRenderingCreateInfo _renderInfo;
-    VkFormat _colorAttachmentformat;
+    VkPipelineLayout _pipeline_layout;
+    VkPipelineDepthStencilStateCreateInfo _depth_stencil;
+    VkPipelineRenderingCreateInfo _render_info;
+    VkFormat _color_attachment_format;
 
     PipelineBuilder() { clear(); }
 
     void clear();
 
     VkPipeline build_pipeline(VkDevice device);
-    //< pipeline
-    void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
+
+    void set_shaders(VkShaderModule vertex_shader, VkShaderModule fragment_shader);
     void set_input_topology(VkPrimitiveTopology topology);
     void set_polygon_mode(VkPolygonMode mode);
-    void set_cull_mode(VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void set_cull_mode(VkCullModeFlags cull_mode, VkFrontFace front_face);
     void set_multisampling_none();
     void disable_blending();
     void enable_blending_additive();
@@ -35,10 +34,10 @@ class PipelineBuilder
     void set_color_attachment_format(VkFormat format);
     void set_depth_format(VkFormat format);
     void disable_depthtest();
-    void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
-};
+    void enable_depthtest(bool depth_write_enable, VkCompareOp op);
+}; // class PipelineBuilder
 
 namespace vkutil
 {
-bool load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
+bool load_shader_module(const char* file_path, VkDevice device, VkShaderModule* out_shader_module);
 }
