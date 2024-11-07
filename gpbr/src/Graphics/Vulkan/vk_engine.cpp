@@ -143,6 +143,14 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdBindDescriptorSets(
         cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradient_pipeline_layout, 0, 1, &_draw_image_descriptors, 0, nullptr);
 
+    ComputePushConstants pc;
+    pc.data1 =
+        glm::vec4(1 + 0.5 * (std::sin(_frame_number / 120.0f)), 0, 1 + 0.5 * (std::cos(_frame_number / 120.0f)), 1);
+    pc.data2 =
+        glm::vec4(1 + 0.5 * (std::cos(_frame_number / 120.0f)), 0, 1 + 0.5 * (std::sin(_frame_number / 120.0f)), 1);
+
+    vkCmdPushConstants(
+        cmd, _gradient_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &pc);
     // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
     vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
@@ -653,10 +661,18 @@ void VulkanEngine::init_background_pipelines()
     compute_layout.pSetLayouts    = &_draw_image_descriptor_layout;
     compute_layout.setLayoutCount = 1;
 
+    VkPushConstantRange push_constant{};
+    push_constant.offset     = 0;
+    push_constant.size       = sizeof(ComputePushConstants);
+    push_constant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    compute_layout.pPushConstantRanges    = &push_constant;
+    compute_layout.pushConstantRangeCount = 1;
+
     VK_CHECK(vkCreatePipelineLayout(_device, &compute_layout, nullptr, &_gradient_pipeline_layout));
 
     VkShaderModule compute_draw_shader;
-    if (!vkutil::load_shader_module("./Shaders/gradient.comp.spv", _device, &compute_draw_shader))
+    if (!vkutil::load_shader_module("./Shaders/gradient_color.comp.spv", _device, &compute_draw_shader))
     {
         fmt::print("Error when building the compute shader\n");
     }

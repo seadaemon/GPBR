@@ -19,7 +19,7 @@ void main()
         if(gl_LocalInvocationID.x != 0 && gl_LocalInvocationID.y != 0)
         {
             color.x = float(texel_coord.x)/(size.x);
-            color.y = float(texel_coord.y)/(size.y);	
+            color.z = float(texel_coord.y)/(size.y);	
         }
     
         imageStore(image, texel_coord, color);
