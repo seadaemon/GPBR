@@ -25,38 +25,25 @@ macro(TARGET_SHADERS)
 
     foreach(SHADER ${SHADER_FILES})
 	    get_filename_component(FILENAME ${SHADER} NAME)
-	    set(SPV_OUTPUT ${SHADER_BINARY_DIR}/${FILENAME}.spv)
+	    set(SPV_OUTPUT ${SHADER_BINARY_DIR}/${FILENAME}.debug.spv)
+        set(OPT_OUTPUT ${SHADER_BINARY_DIR}/${FILENAME}.spv)
 	    add_custom_command(
 	    OUTPUT ${SPV_OUTPUT}
 	    COMMAND ${GLSLANG_EXECUTABLE} -V ${SHADER} -o ${SPV_OUTPUT}
 	    DEPENDS ${SHADER}
 	    COMMENT "Compiling ${FILENAME}"
 	    )
+        add_custom_command(
+	    OUTPUT ${OPT_OUTPUT}
+	    COMMAND ${SPIRV_OPT_EXECUTABLE} -O ${SPV_OUTPUT} -o ${OPT_OUTPUT}
+	    DEPENDS ${SPV_OUTPUT}
+	    #COMMENT "Compiling ${FILENAME}"
+	    )
 	    list(APPEND SPV_SHADERS ${SPV_OUTPUT})
+        list(APPEND OPT_SHADERS ${OPT_OUTPUT})
     endforeach(SHADER)
 
-    add_custom_target(SHADERS ALL DEPENDS ${SPV_SHADERS})
+    add_custom_target(SHADERS ALL DEPENDS ${SPV_SHADERS} ${OPT_SHADERS})
 
     add_dependencies(gpbr SHADERS)
 endmacro()
-
-function(COMPILE_SPIRV_SHADER SHADER_FILE)
-    # Define the final name of the generated shader file
-    find_program(GLSLANG_EXECUTABLE glslangValidator
-        HINTS "$ENV{VULKAN_SDK}/bin")
-    find_program(SPIRV_OPT_EXECUTABLE spirv-opt
-        HINTS "$ENV{VULKAN_SDK}/bin")
-    file(RELATIVE_PATH DEST_SHADER ${CMAKE_SOURCE_DIR} ${SHADER_FILE})
-    set(COMPILE_OUTPUT "${CMAKE_BINARY_DIR}/${DEST_SHADER}.debug.spv")
-    set(OPTIMIZE_OUTPUT "${CMAKE_BINARY_DIR}/${DEST_SHADER}.spv")
-    message(STATUS "Compiling shader ${SHADER_FILE} to ${COMPILE_OUTPUT}")
-    add_custom_command(
-        OUTPUT ${COMPILE_OUTPUT}
-        COMMAND ${GLSLANG_EXECUTABLE} -V ${SHADER_FILE} -o ${COMPILE_OUTPUT}
-        DEPENDS ${SHADER_FILE})
-    add_custom_command(
-        OUTPUT ${OPTIMIZE_OUTPUT}
-        COMMAND ${SPIRV_OPT_EXECUTABLE} -O ${COMPILE_OUTPUT} -o ${OPTIMIZE_OUTPUT}
-        DEPENDS ${COMPILE_OUTPUT})
-    set(COMPILE_SPIRV_SHADER_RETURN ${OPTIMIZE_OUTPUT} PARENT_SCOPE)
-endfunction()
