@@ -1,3 +1,5 @@
+# NOTE: Changes to shaders are detected, but new shader files require a regeneration
+
 # Populates list of shaders ${SHADER_FILES}
 macro(FIND_SHADERS)
     set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/Shaders")

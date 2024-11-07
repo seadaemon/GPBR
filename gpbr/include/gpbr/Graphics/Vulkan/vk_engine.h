@@ -112,6 +112,10 @@ class VulkanEngine
 
     AllocatedImage _draw_image;
 
+    std::vector<ComputeEffect> background_effects;
+
+    int current_background_effect{0};
+
     // initializes everything in the engine
     void init();
 
