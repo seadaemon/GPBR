@@ -105,6 +105,9 @@ class VulkanEngine
 
     VmaAllocator _allocator;
 
+    VkPipeline _triangle_pipeline;
+    VkPipelineLayout _triangle_pipeline_layout;
+
     // immediate submit structures
     VkFence _imm_fence;
     VkCommandBuffer _imm_command_buffer;
@@ -126,6 +129,7 @@ class VulkanEngine
     void draw();
 
     void draw_background(VkCommandBuffer cmd);
+    void draw_geometry(VkCommandBuffer cmd);
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
 
     // run main loop
@@ -135,8 +139,8 @@ class VulkanEngine
 
   private:
     void init_vulkan();
-    void init_swapchain();
 
+    void init_swapchain();
     void create_swapchain(uint32_t width, uint32_t height);
     void destroy_swapchain();
 
@@ -144,6 +148,8 @@ class VulkanEngine
 
     void init_pipelines();
     void init_background_pipelines();
+
+    void init_triangle_pipeline();
 
     void init_descriptors();
 

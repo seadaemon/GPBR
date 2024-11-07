@@ -150,6 +150,41 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
 
+void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
+{ // begin a render pass  connected to our draw image
+    VkRenderingAttachmentInfo color_attachment =
+        vkinit::attachment_info(_draw_image.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo render_info = vkinit::rendering_info(_draw_extent, &color_attachment, nullptr);
+    vkCmdBeginRendering(cmd, &render_info);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _triangle_pipeline);
+
+    // set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x          = 0;
+    viewport.y          = 0;
+    viewport.width      = _draw_extent.width;
+    viewport.height     = _draw_extent.height;
+    viewport.minDepth   = 0.f;
+    viewport.maxDepth   = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor      = {};
+    scissor.offset.x      = 0;
+    scissor.offset.y      = 0;
+    scissor.extent.width  = _draw_extent.width;
+    scissor.extent.height = _draw_extent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    // launch a draw command to draw 3 vertices
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+
+    vkCmdEndRendering(cmd);
+}
+
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
 {
     VkRenderingAttachmentInfo color_attachment =
@@ -198,8 +233,13 @@ void VulkanEngine::draw()
 
     draw_background(cmd);
 
+    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    draw_geometry(cmd);
+
     // transition the draw image and the swapchain image into their correct transfer layouts
-    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    vkutil::transition_image(
+        cmd, _draw_image.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkutil::transition_image(
         cmd, _swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
@@ -656,7 +696,11 @@ void VulkanEngine::init_imgui()
 
 void VulkanEngine::init_pipelines()
 {
+    // COMPUTE PIPELINES
     init_background_pipelines();
+
+    // GRAPHICS PIPELINES
+    init_triangle_pipeline();
 }
 
 void VulkanEngine::init_background_pipelines()
@@ -740,6 +784,60 @@ void VulkanEngine::init_background_pipelines()
             vkDestroyPipelineLayout(_device, _gradient_pipeline_layout, nullptr);
             vkDestroyPipeline(_device, sky.pipeline, nullptr);
             vkDestroyPipeline(_device, gradient.pipeline, nullptr);
+        });
+}
+
+void VulkanEngine::init_triangle_pipeline()
+{
+    VkShaderModule triangle_frag_shader;
+    if (!vkutil::load_shader_module("./Shaders/colored_triangle.frag.spv", _device, &triangle_frag_shader))
+    {
+        fmt::print("Error when building the triangle fragment shader module");
+    }
+    else
+    {
+        fmt::print("Triangle fragment shader successfully loaded\n");
+    }
+
+    VkShaderModule triangle_vertex_shader;
+    if (!vkutil::load_shader_module("./Shaders/colored_triangle.vert.spv", _device, &triangle_vertex_shader))
+    {
+        fmt::print("Error when building the triangle vertex shader module");
+    }
+    else
+    {
+        fmt::print("Triangle vertex shader successfully loaded\n");
+    }
+
+    // build pipeline layout to control input/output of the shader
+    VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
+    VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_triangle_pipeline_layout));
+
+    PipelineBuilder pipeline_builder;
+    pipeline_builder._pipeline_layout = _triangle_pipeline_layout;
+    pipeline_builder.set_shaders(triangle_vertex_shader, triangle_frag_shader);
+    pipeline_builder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+    // no backface culling
+    pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    pipeline_builder.set_multisampling_none();
+    pipeline_builder.disable_blending();
+    pipeline_builder.disable_depthtest();
+
+    pipeline_builder.set_color_attachment_format(_draw_image.imageFormat);
+    pipeline_builder.set_depth_format(VK_FORMAT_UNDEFINED);
+
+    _triangle_pipeline = pipeline_builder.build_pipeline(_device);
+
+    // clean structs
+    vkDestroyShaderModule(_device, triangle_frag_shader, nullptr);
+    vkDestroyShaderModule(_device, triangle_vertex_shader, nullptr);
+
+    _main_deletion_queue.push_function(
+        [&]()
+        {
+            vkDestroyPipelineLayout(_device, _triangle_pipeline_layout, nullptr);
+            vkDestroyPipeline(_device, _triangle_pipeline, nullptr);
         });
 }
 
