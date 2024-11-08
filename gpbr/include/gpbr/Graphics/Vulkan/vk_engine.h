@@ -67,6 +67,7 @@ class VulkanEngine
     VkExtent2D _window_extent{1700, 900};
 
     struct SDL_Window* _window{nullptr};
+    std::string _window_title;
 
     static VulkanEngine& get();
 
@@ -89,6 +90,18 @@ class VulkanEngine
     std::vector<VkImageView> _swapchain_image_views;
     VkExtent2D _swapchain_extent;
     VkExtent2D _draw_extent;
+
+    // Query pool for time stamps to calculate draw time
+    VkQueryPool _query_pool_time_stamps = VK_NULL_HANDLE;
+    std::vector<uint64_t> _time_stamps;
+    float _timestamp_period = 0; // obtained from the GPU
+
+    // time spent on a single frame (not just draw time)
+    float _frame_time{0.0f};
+    // rolling average Frames Per Second
+    float _avg_FPS{0.0f};
+    // 1 second delay between updates
+    float _FPS_delay{1.0f};
 
     DescriptorAllocator global_descriptor_allocator;
 
@@ -154,6 +167,8 @@ class VulkanEngine
     void destroy_swapchain();
 
     void init_commands();
+
+    void init_queries();
 
     void init_pipelines();
     void init_background_pipelines();

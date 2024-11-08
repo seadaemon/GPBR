@@ -22,9 +22,7 @@ VkCommandBufferAllocateInfo vkinit::command_buffer_allocate_info(VkCommandPool p
     info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     return info;
 }
-//< init_cmd
-//
-//> init_cmd_draw
+
 VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageFlags flags /*= 0*/)
 {
     VkCommandBufferBeginInfo info = {};
@@ -33,11 +31,24 @@ VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageF
 
     info.pInheritanceInfo = nullptr;
     info.flags            = flags;
+
     return info;
 }
-//< init_cmd_draw
 
-//> init_sync
+VkQueryPoolCreateInfo
+vkinit::query_pool_create_info(VkQueryType query_type, uint32_t count /*= 1*/, VkQueryPoolCreateFlags flags /*= 0*/)
+{
+    VkQueryPoolCreateInfo info = {};
+    info.sType                 = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    info.pNext                 = nullptr;
+
+    info.queryType  = query_type;
+    info.queryCount = count;
+    info.flags      = flags;
+
+    return info;
+}
+
 VkFenceCreateInfo vkinit::fence_create_info(VkFenceCreateFlags flags /*= 0*/)
 {
     VkFenceCreateInfo info = {};

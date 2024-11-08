@@ -13,6 +13,7 @@
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <numeric>
 
 #define IMGUI_IMPL_VULKAN_NO_PROTOTYPES
 #include "imgui.h"
@@ -50,12 +51,14 @@ void VulkanEngine::init()
         return;
     }
 
+    _window_title = "GPBR";
+
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
-    _window = SDL_CreateWindow("George's Physically Based Renderer", //
-                               _window_extent.width,                 //
-                               _window_extent.height,                //
-                               window_flags                          //
+    _window = SDL_CreateWindow(_window_title.c_str(), //
+                               _window_extent.width,  //
+                               _window_extent.height, //
+                               window_flags           //
     );
 
     init_vulkan();
@@ -63,6 +66,8 @@ void VulkanEngine::init()
     init_swapchain();
 
     init_commands();
+
+    init_queries();
 
     init_sync_structures();
 
@@ -263,7 +268,13 @@ void VulkanEngine::draw()
     _draw_extent.width  = _draw_image.imageExtent.width;
     _draw_extent.height = _draw_image.imageExtent.height;
 
+    //== BEGIN COMMAND BUFFER ========================================
+
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+    // reset and start a new timestamp
+    vkCmdResetQueryPool(cmd, _query_pool_time_stamps, 0, static_cast<uint32_t>(_time_stamps.size()));
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, _query_pool_time_stamps, 0);
 
     // transition the main draw image into general layout so it can be written to
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -301,8 +312,12 @@ void VulkanEngine::draw()
                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, _query_pool_time_stamps, 1);
+
     // finalize the command buffer (we can no longer add commands, but it can now be executed)
     VK_CHECK(vkEndCommandBuffer(cmd));
+
+    //== END COMMAND BUFFER ==========================================
 
     // prepare the submission to the queue.
     // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
@@ -319,6 +334,18 @@ void VulkanEngine::draw()
     // submit command buffer to the queue and execute it.
     //  _renderFence will now block until the graphic commands finish execution
     VK_CHECK(vkQueueSubmit2(_graphics_queue, 1, &submit, get_current_frame()._render_fence));
+
+    // get time stamp results
+    uint32_t count = _time_stamps.size();
+
+    vkGetQueryPoolResults(_device, //
+                          _query_pool_time_stamps,
+                          0,
+                          count,
+                          _time_stamps.size() * sizeof(uint64_t),
+                          _time_stamps.data(),
+                          sizeof(uint64_t),
+                          VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
     // prepare present
     // this will put the image we just rendered to into the visible window.
@@ -343,12 +370,29 @@ void VulkanEngine::draw()
 //==> MAIN LOOP
 void VulkanEngine::run()
 {
+    // Fixed timestep
+    const float FPS = 60.0f;
+    const float dt  = 1.0f / FPS; // ~= 16.6ms
+
+    auto previous_time = std::chrono::high_resolution_clock::now();
+
     SDL_Event e;
     bool quit = false;
-
     // main loop
     while (!quit)
     {
+        const auto new_time = std::chrono::high_resolution_clock::now();
+        _frame_time         = std::chrono::duration<float>(new_time - previous_time).count();
+        previous_time       = new_time;
+
+        float new_FPS = 1.0f / _frame_time;
+        if (new_FPS == std::numeric_limits<float>::infinity())
+        {
+            // in case of _frame_time == 0
+            new_FPS = 0;
+        }
+        _avg_FPS = std::lerp(_avg_FPS, new_FPS, 0.1f);
+
         // Poll until all events are handled
         while (SDL_PollEvent(&e))
         {
@@ -413,6 +457,20 @@ void VulkanEngine::run()
         ImGui::Render();
 
         draw();
+
+        // update window to show FPS
+
+        if (_FPS_delay > 0.0f)
+        {
+            _FPS_delay -= dt;
+        }
+        else
+        {
+            _FPS_delay = 1.0f;
+            SDL_SetWindowTitle(
+                _window,
+                fmt::format("{} | FPS {:d} | Frame Time {:.3f}s", _window_title, int(_avg_FPS), _frame_time).c_str());
+        }
     }
 }
 //<== MAIN LOOP
@@ -446,6 +504,7 @@ void VulkanEngine::init_vulkan()
     VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.bufferDeviceAddress = true;
     features12.descriptorIndexing  = true;
+    features12.hostQueryReset      = true;
 
     // select a gpu
     vkb::PhysicalDeviceSelector selector{vkb_inst};
@@ -640,6 +699,25 @@ void VulkanEngine::init_commands()
     VK_CHECK(vkAllocateCommandBuffers(_device, &cmd_alloc_info, &_imm_command_buffer));
 
     _main_deletion_queue.push_function([=]() { vkDestroyCommandPool(_device, _imm_command_pool, nullptr); });
+}
+
+void VulkanEngine::init_queries()
+{
+    // get the timestamp period for the selected GPU
+    VkPhysicalDeviceProperties physical_device_properties{};
+    vkGetPhysicalDeviceProperties(_chosen_GPU, &physical_device_properties);
+    VkPhysicalDeviceLimits device_limits = physical_device_properties.limits;
+    _timestamp_period                    = device_limits.timestampPeriod;
+
+    // 2 time points for 1 render pass
+    _time_stamps.resize(2);
+
+    // create timestamp query pool
+    VkQueryPoolCreateInfo query_pool_info =
+        vkinit::query_pool_create_info(VK_QUERY_TYPE_TIMESTAMP, static_cast<uint32_t>(_time_stamps.size()));
+    VK_CHECK(vkCreateQueryPool(_device, &query_pool_info, nullptr, &_query_pool_time_stamps));
+
+    _main_deletion_queue.push_function([=]() { vkDestroyQueryPool(_device, _query_pool_time_stamps, nullptr); });
 }
 
 void VulkanEngine::init_sync_structures()
