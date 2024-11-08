@@ -18,7 +18,7 @@ target_link_libraries(gpbr PUBLIC
 	vk-bootstrap::vk-bootstrap
 
     imgui::imgui
-
+    fastgltf::fastgltf
 	fmt::fmt
 )
 target_compile_definitions(gpbr

@@ -121,7 +121,7 @@ class VulkanEngine
 
     std::vector<ComputeEffect> background_effects;
 
-    int current_background_effect{0};
+    int current_background_effect{1};
 
     // initializes everything in the engine
     void init();

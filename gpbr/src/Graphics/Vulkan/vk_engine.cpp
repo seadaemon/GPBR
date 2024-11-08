@@ -79,7 +79,7 @@ void VulkanEngine::init()
 
 void VulkanEngine::init_default_data()
 {
-    test_meshes = load_gltf_meshes(this, ".\\Assets\\Avocado.glb").value();
+    test_meshes = load_gltf_meshes(this, ".\\Assets\\basicmesh.glb").value();
 }
 
 void VulkanEngine::destroy_swapchain()
@@ -194,8 +194,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     GPUDrawPushConstants push_constants;
 
     // loading a 3D mesh
-    glm::mat4 view = glm::translate(glm::vec3{0, 0, -0.15}); // 5 units from origin
-    view           = glm::rotate(view, glm::radians(180.0f), glm::vec3(0, 1, 0));
+    glm::mat4 view = glm::translate(glm::vec3{0, 0, -5}); // 5 units from origin
+    view           = glm::rotate(view, glm::radians(45.0f), glm::vec3(0, 1, 0));
 
     //  note "near" is 1000 and "far" is 0.1 because: near plane: depth 1 | far plane: depth 0
     //  this is done to increase quality of depth testing (to be seen later)
@@ -208,13 +208,16 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     // projection * view * model
     push_constants.world_matrix = projection * view;
 
-    push_constants.vertex_buffer = test_meshes[0]->mesh_buffers.vertex_buffer_address;
+    uint32_t mesh_idx = 2;
+
+    push_constants.vertex_buffer = test_meshes[mesh_idx]->mesh_buffers.vertex_buffer_address;
 
     vkCmdPushConstants(
         cmd, _mesh_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-    vkCmdBindIndexBuffer(cmd, test_meshes[0]->mesh_buffers.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(cmd, test_meshes[mesh_idx]->mesh_buffers.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDrawIndexed(cmd, test_meshes[0]->surfaces[0].count, 1, test_meshes[0]->surfaces[0].start_index, 0, 0);
+    vkCmdDrawIndexed(
+        cmd, test_meshes[mesh_idx]->surfaces[0].count, 1, test_meshes[mesh_idx]->surfaces[0].start_index, 0, 0);
 
     vkCmdEndRendering(cmd);
 }
@@ -334,7 +337,6 @@ void VulkanEngine::draw()
 
     VK_CHECK(vkQueuePresentKHR(_graphics_queue, &present_info));
 
-    // increase the number of frames drawn
     _frame_number++;
 }
 
@@ -468,10 +470,12 @@ void VulkanEngine::init_vulkan()
     _chosen_GPU = physical_device.physical_device;
     //<== INIT DEVICE
 
+    //==> INIT VOLK
     // load vulkan function entrypoints using VOLK
     volkInitialize();
     volkLoadInstance(_instance);
     volkLoadDevice(_device);
+    //<== INIT VOLK
 
     // get a graphics queue using vkbootstrap
     _graphics_queue        = vkb_device.get_queue(vkb::QueueType::graphics).value();
