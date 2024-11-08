@@ -79,39 +79,7 @@ void VulkanEngine::init()
 
 void VulkanEngine::init_default_data()
 {
-    std::array<Vertex, 4> rect_vertices;
-    // vertices are arranged in a clockwise fashion
-    rect_vertices[0].position = {0.5, -0.5, 0};
-    rect_vertices[1].position = {0.5, 0.5, 0};
-    rect_vertices[2].position = {-0.5, -0.5, 0};
-    rect_vertices[3].position = {-0.5, 0.5, 0};
-
-    rect_vertices[0].color = {0, 0, 0, 1};
-    rect_vertices[1].color = {0.5, 0.5, 0.5, 1};
-    rect_vertices[2].color = {1, 0, 0, 1};
-    rect_vertices[3].color = {0, 1, 0, 1};
-
-    std::array<uint32_t, 6> rect_indices;
-
-    rect_indices[0] = 0;
-    rect_indices[1] = 1;
-    rect_indices[2] = 2;
-
-    rect_indices[3] = 2;
-    rect_indices[4] = 1;
-    rect_indices[5] = 3;
-
-    rectangle = upload_mesh(rect_indices, rect_vertices);
-
-    // delete the rectangle data on engine shutdown
-    _main_deletion_queue.push_function(
-        [&]()
-        {
-            destroy_buffer(rectangle.index_buffer);
-            destroy_buffer(rectangle.vertex_buffer);
-        });
-
-    test_meshes = load_gltf_meshes(this, ".\\Assets\\DragonAttenuation.glb").value();
+    test_meshes = load_gltf_meshes(this, ".\\Assets\\Avocado.glb").value();
 }
 
 void VulkanEngine::destroy_swapchain()
@@ -202,7 +170,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     VkRenderingInfo render_info = vkinit::rendering_info(_window_extent, &color_attachment, &depth_attachment);
     vkCmdBeginRendering(cmd, &render_info);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _triangle_pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _mesh_pipeline);
 
     // set dynamic viewport and scissor
     VkViewport viewport = {};
@@ -218,31 +186,19 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     VkRect2D scissor      = {};
     scissor.offset.x      = 0;
     scissor.offset.y      = 0;
-    scissor.extent.width  = _draw_extent.width;
-    scissor.extent.height = _draw_extent.height;
+    scissor.extent.width  = viewport.width;
+    scissor.extent.height = viewport.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // launch a draw command to draw 3 vertices
-    vkCmdDraw(cmd, 3, 1, 0, 0);
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _mesh_pipeline);
-
     GPUDrawPushConstants push_constants;
-    push_constants.world_matrix  = glm::mat4{1.f}; // identity matrix
-    push_constants.vertex_buffer = rectangle.vertex_buffer_address;
-
-    vkCmdPushConstants(
-        cmd, _mesh_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &push_constants);
-    vkCmdBindIndexBuffer(cmd, rectangle.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-    // launch a draw command to draw 6 vertices (2 triangles)
-    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
     // loading a 3D mesh
-    glm::mat4 view = glm::translate(glm::vec3{0, 0, -5}); // 5 units from origin
-    // note "near" is 1000 and "far" is 0.1 because: near plane: depth 1 | far plane: depth 0
-    // this is done to increase quality of depth testing (to be seen later)
+    glm::mat4 view = glm::translate(glm::vec3{0, 0, -0.15}); // 5 units from origin
+    view           = glm::rotate(view, glm::radians(180.0f), glm::vec3(0, 1, 0));
+
+    //  note "near" is 1000 and "far" is 0.1 because: near plane: depth 1 | far plane: depth 0
+    //  this is done to increase quality of depth testing (to be seen later)
     glm::mat4 projection =
         glm::perspective(glm::radians(70.0f), (float)_draw_extent.width / (float)_draw_extent.height, 1000.0f, 0.1f);
 
@@ -650,7 +606,7 @@ void VulkanEngine::init_swapchain()
             vmaDestroyImage(_allocator, _draw_image.image, _draw_image.allocation);
 
             vkDestroyImageView(_device, _depth_image.imageView, nullptr);
-            vmaDestroyImage(_allocator, _draw_image.image, _draw_image.allocation);
+            vmaDestroyImage(_allocator, _depth_image.image, _depth_image.allocation);
         });
 }
 
@@ -802,7 +758,6 @@ void VulkanEngine::init_pipelines()
     init_background_pipelines();
 
     // GRAPHICS PIPELINES
-    init_triangle_pipeline();
     init_mesh_pipeline();
 }
 
@@ -887,60 +842,6 @@ void VulkanEngine::init_background_pipelines()
             vkDestroyPipelineLayout(_device, _gradient_pipeline_layout, nullptr);
             vkDestroyPipeline(_device, sky.pipeline, nullptr);
             vkDestroyPipeline(_device, gradient.pipeline, nullptr);
-        });
-}
-
-void VulkanEngine::init_triangle_pipeline()
-{
-    VkShaderModule triangle_frag_shader;
-    if (!vkutil::load_shader_module("./Shaders/colored_triangle.frag.spv", _device, &triangle_frag_shader))
-    {
-        fmt::print("Error when building the triangle fragment shader module");
-    }
-    else
-    {
-        fmt::print("Triangle fragment shader successfully loaded\n");
-    }
-
-    VkShaderModule triangle_vertex_shader;
-    if (!vkutil::load_shader_module("./Shaders/colored_triangle.vert.spv", _device, &triangle_vertex_shader))
-    {
-        fmt::print("Error when building the triangle vertex shader module");
-    }
-    else
-    {
-        fmt::print("Triangle vertex shader successfully loaded\n");
-    }
-
-    // build pipeline layout to control input/output of the shader
-    VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
-    VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_triangle_pipeline_layout));
-
-    PipelineBuilder pipeline_builder;
-    pipeline_builder._pipeline_layout = _triangle_pipeline_layout;
-    pipeline_builder.set_shaders(triangle_vertex_shader, triangle_frag_shader);
-    pipeline_builder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-    // no backface culling
-    pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    pipeline_builder.set_multisampling_none();
-    pipeline_builder.disable_blending();
-    pipeline_builder.disable_depthtest();
-
-    pipeline_builder.set_color_attachment_format(_draw_image.imageFormat);
-    pipeline_builder.set_depth_format(_depth_image.imageFormat);
-
-    _triangle_pipeline = pipeline_builder.build_pipeline(_device);
-
-    // clean structs
-    vkDestroyShaderModule(_device, triangle_frag_shader, nullptr);
-    vkDestroyShaderModule(_device, triangle_vertex_shader, nullptr);
-
-    _main_deletion_queue.push_function(
-        [&]()
-        {
-            vkDestroyPipelineLayout(_device, _triangle_pipeline_layout, nullptr);
-            vkDestroyPipeline(_device, _triangle_pipeline, nullptr);
         });
 }
 

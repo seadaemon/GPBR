@@ -106,13 +106,9 @@ class VulkanEngine
 
     VmaAllocator _allocator;
 
-    VkPipeline _triangle_pipeline;
-    VkPipelineLayout _triangle_pipeline_layout;
-
     VkPipeline _mesh_pipeline;
     VkPipelineLayout _mesh_pipeline_layout;
 
-    GPUMeshBuffers rectangle;
     std::vector<std::shared_ptr<MeshAsset>> test_meshes;
 
     // immediate submit structures
@@ -161,8 +157,6 @@ class VulkanEngine
 
     void init_pipelines();
     void init_background_pipelines();
-
-    void init_triangle_pipeline();
 
     void init_mesh_pipeline();
 
