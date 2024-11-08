@@ -51,7 +51,7 @@ if(Vulkan_volk_FOUND)
     target_include_directories(imgui PUBLIC ${Vulkan_INCLUDE_DIRS}/Volk)
 endif()
 
-
+# SDL 3 linking
 if(BUILD_SHARED_LIBS)
   target_link_libraries(imgui
     PUBLIC
@@ -65,6 +65,9 @@ else()
 endif()
 
 add_library(imgui::imgui ALIAS imgui)
+
+# fastgltf
+add_subdirectory(fastgltf)
 
 # fmt
 add_subdirectory(fmt)

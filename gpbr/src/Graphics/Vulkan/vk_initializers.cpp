@@ -140,28 +140,26 @@ VkRenderingAttachmentInfo vkinit::attachment_info(VkImageView view,
 
     return colorAttachment;
 }
-//< color_info
-//> depth_info
+
 VkRenderingAttachmentInfo
 vkinit::depth_attachment_info(VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
 {
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.pNext = nullptr;
+    VkRenderingAttachmentInfo depth_attachment{};
+    depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depth_attachment.pNext = nullptr;
 
-    depthAttachment.imageView                     = view;
-    depthAttachment.imageLayout                   = layout;
-    depthAttachment.loadOp                        = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp                       = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 0.f;
+    depth_attachment.imageView                     = view;
+    depth_attachment.imageLayout                   = layout;
+    depth_attachment.loadOp                        = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp                       = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.clearValue.depthStencil.depth = 0.0f;
 
-    return depthAttachment;
+    return depth_attachment;
 }
-//< depth_info
-//> render_info
-VkRenderingInfo vkinit::rendering_info(VkExtent2D renderExtent,
-                                       VkRenderingAttachmentInfo* colorAttachment,
-                                       VkRenderingAttachmentInfo* depthAttachment)
+
+VkRenderingInfo vkinit::rendering_info(VkExtent2D render_extent,
+                                       VkRenderingAttachmentInfo* color_attachment,
+                                       VkRenderingAttachmentInfo* depth_attachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -169,18 +167,17 @@ VkRenderingInfo vkinit::rendering_info(VkExtent2D renderExtent,
 
     renderInfo.renderArea = VkRect2D{
         VkOffset2D{0, 0},
-        renderExtent
+        render_extent
     };
     renderInfo.layerCount           = 1;
     renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachments    = colorAttachment;
-    renderInfo.pDepthAttachment     = depthAttachment;
+    renderInfo.pColorAttachments    = color_attachment;
+    renderInfo.pDepthAttachment     = depth_attachment;
     renderInfo.pStencilAttachment   = nullptr;
 
     return renderInfo;
 }
-//< render_info
-//> subresource
+
 VkImageSubresourceRange vkinit::image_subresource_range(VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};

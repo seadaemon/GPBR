@@ -6,6 +6,7 @@
 #include <deque>
 #include <functional>
 #include "vk_descriptors.h"
+#include "vk_loader.h"
 
 // A FILO queue that stores function callbacks
 struct DeletionQueue
@@ -112,6 +113,7 @@ class VulkanEngine
     VkPipelineLayout _mesh_pipeline_layout;
 
     GPUMeshBuffers rectangle;
+    std::vector<std::shared_ptr<MeshAsset>> test_meshes;
 
     // immediate submit structures
     VkFence _imm_fence;
@@ -119,6 +121,7 @@ class VulkanEngine
     VkCommandPool _imm_command_pool;
 
     AllocatedImage _draw_image;
+    AllocatedImage _depth_image;
 
     std::vector<ComputeEffect> background_effects;
 

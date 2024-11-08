@@ -7,6 +7,7 @@ add_executable(gpbr
 	src/Graphics/Vulkan/vk_images.cpp
 	src/Graphics/Vulkan/vk_descriptors.cpp
 	src/Graphics/Vulkan/vk_pipelines.cpp
+	src/Graphics/Vulkan/vk_loader.cpp
 )
 set_target_properties(gpbr PROPERTIES
   CXX_STANDARD 20
@@ -29,6 +30,7 @@ target_link_libraries(gpbr
 		vk-bootstrap::vk-bootstrap
 
 		fmt::fmt
+		fastgltf::fastgltf
 		imgui::imgui
 )
 
@@ -62,6 +64,9 @@ target_compile_definitions(gpbr
 
 # copy dlls to build dir
 copy_runtime_dlls(gpbr)
+
+# copy assets (meshes, textures) to build dir
+copy_assets(gpbr)
 
 # Find shaders in /src/Shaders
 FIND_SHADERS()
