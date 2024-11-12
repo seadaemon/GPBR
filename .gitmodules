@@ -10,3 +10,6 @@
 [submodule "gpbr/third_party/imgui"]
 	path = gpbr/third_party/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "gpbr/third_party/fastgltf"]
+	path = gpbr/third_party/fastgltf
+	url = https://github.com/spnda/fastgltf.git

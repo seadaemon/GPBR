@@ -3,139 +3,118 @@
 #include "gpbr/Graphics/Vulkan/vk_initializers.h"
 #include <fstream>
 
-//> pipe_clear
 void PipelineBuilder::clear()
 {
-    // clear all of the structs we need back to 0 with their correct stype
+    // clear all structs and provide their correct sType
 
-    _inputAssembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+    _input_assembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 
     _rasterizer = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
 
-    _colorBlendAttachment = {};
+    _color_blend_attachment = {};
 
     _multisampling = {.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 
-    _pipelineLayout = {};
+    _pipeline_layout = {};
 
-    _depthStencil = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+    _depth_stencil = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 
-    _renderInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    _render_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
 
-    _shaderStages.clear();
+    _shader_stages.clear();
 }
-//< pipe_clear
 
-//> build_pipeline_1
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
 {
     // make viewport state from our stored viewport and scissor.
     // at the moment we wont support multiple viewports or scissors
-    VkPipelineViewportStateCreateInfo viewportState = {};
-    viewportState.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.pNext                             = nullptr;
+    VkPipelineViewportStateCreateInfo viewport_state = {};
+    viewport_state.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.pNext                             = nullptr;
 
-    viewportState.viewportCount = 1;
-    viewportState.scissorCount  = 1;
+    viewport_state.viewportCount = 1;
+    viewport_state.scissorCount  = 1;
 
     // setup dummy color blending. We arent using transparent objects yet
     // the blending is just "no blend", but we do write to the color attachment
-    VkPipelineColorBlendStateCreateInfo colorBlending = {};
-    colorBlending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.pNext                               = nullptr;
+    VkPipelineColorBlendStateCreateInfo color_blending = {};
+    color_blending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    color_blending.pNext                               = nullptr;
 
-    colorBlending.logicOpEnable   = VK_FALSE;
-    colorBlending.logicOp         = VK_LOGIC_OP_COPY;
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments    = &_colorBlendAttachment;
+    color_blending.logicOpEnable   = VK_FALSE;
+    color_blending.logicOp         = VK_LOGIC_OP_COPY;
+    color_blending.attachmentCount = 1;
+    color_blending.pAttachments    = &_color_blend_attachment;
 
     // completely clear VertexInputStateCreateInfo, as we have no need for it
-    VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {
+    VkPipelineVertexInputStateCreateInfo vertex_input_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-    //< build_pipeline_1
-
-    //> build_pipeline_2
     // build the actual pipeline
     // we now use all of the info structs we have been writing into into this one
     // to create the pipeline
-    VkGraphicsPipelineCreateInfo pipelineInfo = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+    VkGraphicsPipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
     // connect the renderInfo to the pNext extension mechanism
-    pipelineInfo.pNext = &_renderInfo;
+    pipeline_info.pNext = &_render_info;
 
-    pipelineInfo.stageCount          = (uint32_t)_shaderStages.size();
-    pipelineInfo.pStages             = _shaderStages.data();
-    pipelineInfo.pVertexInputState   = &_vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &_inputAssembly;
-    pipelineInfo.pViewportState      = &viewportState;
-    pipelineInfo.pRasterizationState = &_rasterizer;
-    pipelineInfo.pMultisampleState   = &_multisampling;
-    pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDepthStencilState  = &_depthStencil;
-    pipelineInfo.layout              = _pipelineLayout;
+    pipeline_info.stageCount          = (uint32_t)_shader_stages.size();
+    pipeline_info.pStages             = _shader_stages.data();
+    pipeline_info.pVertexInputState   = &vertex_input_info;
+    pipeline_info.pInputAssemblyState = &_input_assembly;
+    pipeline_info.pViewportState      = &viewport_state;
+    pipeline_info.pRasterizationState = &_rasterizer;
+    pipeline_info.pMultisampleState   = &_multisampling;
+    pipeline_info.pColorBlendState    = &color_blending;
+    pipeline_info.pDepthStencilState  = &_depth_stencil;
+    pipeline_info.layout              = _pipeline_layout;
 
-    //< build_pipeline_2
-    //> build_pipeline_3
     VkDynamicState state[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 
-    VkPipelineDynamicStateCreateInfo dynamicInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
-    dynamicInfo.pDynamicStates                   = &state[0];
-    dynamicInfo.dynamicStateCount                = 2;
+    VkPipelineDynamicStateCreateInfo dynamic_info = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+    dynamic_info.pDynamicStates                   = &state[0];
+    dynamic_info.dynamicStateCount                = 2;
 
-    pipelineInfo.pDynamicState = &dynamicInfo;
-    //< build_pipeline_3
-    //> build_pipeline_4
-    // its easy to error out on create graphics pipeline, so we handle it a bit
-    // better than the common VK_CHECK case
-    VkPipeline newPipeline;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS)
+    pipeline_info.pDynamicState = &dynamic_info;
+
+    VkPipeline new_pipeline;
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &new_pipeline) != VK_SUCCESS)
     {
         fmt::println("failed to create pipeline");
-        return VK_NULL_HANDLE; // failed to create graphics pipeline
+        return VK_NULL_HANDLE;
     }
     else
     {
-        return newPipeline;
+        return new_pipeline;
     }
-    //< build_pipeline_4
 }
-//> set_shaders
-void PipelineBuilder::set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
+
+void PipelineBuilder::set_shaders(VkShaderModule vertex_shader, VkShaderModule fragment_shader)
 {
-    _shaderStages.clear();
+    _shader_stages.clear();
 
-    _shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, vertexShader));
+    _shader_stages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, vertex_shader));
 
-    _shaderStages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader));
+    _shader_stages.push_back(vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, fragment_shader));
 }
-//< set_shaders
-//> set_topo
+
 void PipelineBuilder::set_input_topology(VkPrimitiveTopology topology)
 {
-    _inputAssembly.topology = topology;
-    // we are not going to use primitive restart on the entire tutorial so leave
-    // it on false
-    _inputAssembly.primitiveRestartEnable = VK_FALSE;
+    _input_assembly.topology               = topology;
+    _input_assembly.primitiveRestartEnable = VK_FALSE;
 }
-//< set_topo
 
-//> set_poly
 void PipelineBuilder::set_polygon_mode(VkPolygonMode mode)
 {
     _rasterizer.polygonMode = mode;
     _rasterizer.lineWidth   = 1.f;
 }
-//< set_poly
 
-//> set_cull
-void PipelineBuilder::set_cull_mode(VkCullModeFlags cullMode, VkFrontFace frontFace)
+void PipelineBuilder::set_cull_mode(VkCullModeFlags cull_mode, VkFrontFace front_face)
 {
-    _rasterizer.cullMode  = cullMode;
-    _rasterizer.frontFace = frontFace;
+    _rasterizer.cullMode  = cull_mode;
+    _rasterizer.frontFace = front_face;
 }
-//< set_cull
 
-//> set_multisample
 void PipelineBuilder::set_multisampling_none()
 {
     _multisampling.sampleShadingEnable = VK_FALSE;
@@ -147,97 +126,85 @@ void PipelineBuilder::set_multisampling_none()
     _multisampling.alphaToCoverageEnable = VK_FALSE;
     _multisampling.alphaToOneEnable      = VK_FALSE;
 }
-//< set_multisample
 
-//> set_noblend
 void PipelineBuilder::disable_blending()
 {
     // default write mask
-    _colorBlendAttachment.colorWriteMask =
+    _color_blend_attachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     // no blending
-    _colorBlendAttachment.blendEnable = VK_FALSE;
+    _color_blend_attachment.blendEnable = VK_FALSE;
 }
-//< set_noblend
 
-//> alphablend
 void PipelineBuilder::enable_blending_additive()
 {
-    _colorBlendAttachment.colorWriteMask =
+    _color_blend_attachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    _colorBlendAttachment.blendEnable         = VK_TRUE;
-    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
-    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    _colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+    _color_blend_attachment.blendEnable         = VK_TRUE;
+    _color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    _color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    _color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    _color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 }
 
 void PipelineBuilder::enable_blending_alphablend()
 {
-    _colorBlendAttachment.colorWriteMask =
+    _color_blend_attachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    _colorBlendAttachment.blendEnable         = VK_TRUE;
-    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    _colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
-    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    _colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+    _color_blend_attachment.blendEnable         = VK_TRUE;
+    _color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    _color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    _color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    _color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 }
-//< alphablend
 
-//> set_formats
 void PipelineBuilder::set_color_attachment_format(VkFormat format)
 {
-    _colorAttachmentformat = format;
-    // connect the format to the renderInfo  structure
-    _renderInfo.colorAttachmentCount    = 1;
-    _renderInfo.pColorAttachmentFormats = &_colorAttachmentformat;
+    _color_attachment_format = format;
+    // connect the format to the render_info  structure
+    _render_info.colorAttachmentCount    = 1;
+    _render_info.pColorAttachmentFormats = &_color_attachment_format;
 }
 
 void PipelineBuilder::set_depth_format(VkFormat format)
 {
-    _renderInfo.depthAttachmentFormat = format;
+    _render_info.depthAttachmentFormat = format;
 }
-//< set_formats
 
-//> depth_disable
 void PipelineBuilder::disable_depthtest()
 {
-    _depthStencil.depthTestEnable       = VK_FALSE;
-    _depthStencil.depthWriteEnable      = VK_FALSE;
-    _depthStencil.depthCompareOp        = VK_COMPARE_OP_NEVER;
-    _depthStencil.depthBoundsTestEnable = VK_FALSE;
-    _depthStencil.stencilTestEnable     = VK_FALSE;
-    _depthStencil.front                 = {};
-    _depthStencil.back                  = {};
-    _depthStencil.minDepthBounds        = 0.f;
-    _depthStencil.maxDepthBounds        = 1.f;
+    _depth_stencil.depthTestEnable       = VK_FALSE;
+    _depth_stencil.depthWriteEnable      = VK_FALSE;
+    _depth_stencil.depthCompareOp        = VK_COMPARE_OP_NEVER;
+    _depth_stencil.depthBoundsTestEnable = VK_FALSE;
+    _depth_stencil.stencilTestEnable     = VK_FALSE;
+    _depth_stencil.front                 = {};
+    _depth_stencil.back                  = {};
+    _depth_stencil.minDepthBounds        = 0.f;
+    _depth_stencil.maxDepthBounds        = 1.f;
 }
-//< depth_disable
 
-//> depth_enable
-void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op)
+void PipelineBuilder::enable_depthtest(bool depth_write_enable, VkCompareOp op)
 {
-    _depthStencil.depthTestEnable       = VK_TRUE;
-    _depthStencil.depthWriteEnable      = depthWriteEnable;
-    _depthStencil.depthCompareOp        = op;
-    _depthStencil.depthBoundsTestEnable = VK_FALSE;
-    _depthStencil.stencilTestEnable     = VK_FALSE;
-    _depthStencil.front                 = {};
-    _depthStencil.back                  = {};
-    _depthStencil.minDepthBounds        = 0.f;
-    _depthStencil.maxDepthBounds        = 1.f;
+    _depth_stencil.depthTestEnable       = VK_TRUE;
+    _depth_stencil.depthWriteEnable      = depth_write_enable;
+    _depth_stencil.depthCompareOp        = op;
+    _depth_stencil.depthBoundsTestEnable = VK_FALSE;
+    _depth_stencil.stencilTestEnable     = VK_FALSE;
+    _depth_stencil.front                 = {};
+    _depth_stencil.back                  = {};
+    _depth_stencil.minDepthBounds        = 0.0f;
+    _depth_stencil.maxDepthBounds        = 1.0f;
 }
-//< depth_enable
 
-//> load_shader
-bool vkutil::load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule)
+bool vkutil::load_shader_module(const char* file_path, VkDevice device, VkShaderModule* out_shader_module)
 {
     // open the file. With cursor at the end
-    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+    std::ifstream file(file_path, std::ios::ate | std::ios::binary);
 
     if (!file.is_open())
     {
@@ -246,38 +213,37 @@ bool vkutil::load_shader_module(const char* filePath, VkDevice device, VkShaderM
 
     // find what the size of the file is by looking up the location of the cursor
     // because the cursor is at the end, it gives the size directly in bytes
-    size_t fileSize = (size_t)file.tellg();
+    size_t file_size = (size_t)file.tellg();
 
     // spirv expects the buffer to be on uint32, so make sure to reserve a int
     // vector big enough for the entire file
-    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+    std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
 
     // put file cursor at beginning
     file.seekg(0);
 
     // load the entire file into the buffer
-    file.read((char*)buffer.data(), fileSize);
+    file.read((char*)buffer.data(), file_size);
 
     // now that the file is loaded into the buffer, we can close it
     file.close();
 
     // create a new shader module, using the buffer we loaded
-    VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.pNext                    = nullptr;
+    VkShaderModuleCreateInfo create_info = {};
+    create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create_info.pNext                    = nullptr;
 
     // codeSize has to be in bytes, so multply the ints in the buffer by size of
     // int to know the real size of the buffer
-    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-    createInfo.pCode    = buffer.data();
+    create_info.codeSize = buffer.size() * sizeof(uint32_t);
+    create_info.pCode    = buffer.data();
 
     // check that the creation goes well.
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+    VkShaderModule shader_module;
+    if (vkCreateShaderModule(device, &create_info, nullptr, &shader_module) != VK_SUCCESS)
     {
         return false;
     }
-    *outShaderModule = shaderModule;
+    *out_shader_module = shader_module;
     return true;
 }
-//< load_shader

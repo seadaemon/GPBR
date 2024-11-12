@@ -22,9 +22,7 @@ VkCommandBufferAllocateInfo vkinit::command_buffer_allocate_info(VkCommandPool p
     info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     return info;
 }
-//< init_cmd
-//
-//> init_cmd_draw
+
 VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageFlags flags /*= 0*/)
 {
     VkCommandBufferBeginInfo info = {};
@@ -33,11 +31,24 @@ VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageF
 
     info.pInheritanceInfo = nullptr;
     info.flags            = flags;
+
     return info;
 }
-//< init_cmd_draw
 
-//> init_sync
+VkQueryPoolCreateInfo
+vkinit::query_pool_create_info(VkQueryType query_type, uint32_t count /*= 1*/, VkQueryPoolCreateFlags flags /*= 0*/)
+{
+    VkQueryPoolCreateInfo info = {};
+    info.sType                 = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    info.pNext                 = nullptr;
+
+    info.queryType  = query_type;
+    info.queryCount = count;
+    info.flags      = flags;
+
+    return info;
+}
+
 VkFenceCreateInfo vkinit::fence_create_info(VkFenceCreateFlags flags /*= 0*/)
 {
     VkFenceCreateInfo info = {};
@@ -140,28 +151,26 @@ VkRenderingAttachmentInfo vkinit::attachment_info(VkImageView view,
 
     return colorAttachment;
 }
-//< color_info
-//> depth_info
+
 VkRenderingAttachmentInfo
 vkinit::depth_attachment_info(VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
 {
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.pNext = nullptr;
+    VkRenderingAttachmentInfo depth_attachment{};
+    depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depth_attachment.pNext = nullptr;
 
-    depthAttachment.imageView                     = view;
-    depthAttachment.imageLayout                   = layout;
-    depthAttachment.loadOp                        = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp                       = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 0.f;
+    depth_attachment.imageView                     = view;
+    depth_attachment.imageLayout                   = layout;
+    depth_attachment.loadOp                        = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp                       = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.clearValue.depthStencil.depth = 0.0f;
 
-    return depthAttachment;
+    return depth_attachment;
 }
-//< depth_info
-//> render_info
-VkRenderingInfo vkinit::rendering_info(VkExtent2D renderExtent,
-                                       VkRenderingAttachmentInfo* colorAttachment,
-                                       VkRenderingAttachmentInfo* depthAttachment)
+
+VkRenderingInfo vkinit::rendering_info(VkExtent2D render_extent,
+                                       VkRenderingAttachmentInfo* color_attachment,
+                                       VkRenderingAttachmentInfo* depth_attachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -169,18 +178,17 @@ VkRenderingInfo vkinit::rendering_info(VkExtent2D renderExtent,
 
     renderInfo.renderArea = VkRect2D{
         VkOffset2D{0, 0},
-        renderExtent
+        render_extent
     };
     renderInfo.layerCount           = 1;
     renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachments    = colorAttachment;
-    renderInfo.pDepthAttachment     = depthAttachment;
+    renderInfo.pColorAttachments    = color_attachment;
+    renderInfo.pDepthAttachment     = depth_attachment;
     renderInfo.pStencilAttachment   = nullptr;
 
     return renderInfo;
 }
-//< render_info
-//> subresource
+
 VkImageSubresourceRange vkinit::image_subresource_range(VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};
