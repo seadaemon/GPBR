@@ -65,6 +65,8 @@ class VulkanEngine
     int _frame_number{0};
     bool _stop_rendering{false};
     VkExtent2D _window_extent{1700, 900};
+    // VkExtent2D _window_extent{1920, 1080};
+    bool _resize_requested{false};
 
     struct SDL_Window* _window{nullptr};
     std::string _window_title;
@@ -90,6 +92,7 @@ class VulkanEngine
     std::vector<VkImageView> _swapchain_image_views;
     VkExtent2D _swapchain_extent;
     VkExtent2D _draw_extent;
+    float _render_scale{1.0f};
 
     // Query pool for time stamps to calculate draw time
     VkQueryPool _query_pool_time_stamps = VK_NULL_HANDLE;
@@ -134,7 +137,7 @@ class VulkanEngine
 
     std::vector<ComputeEffect> background_effects;
 
-    int current_background_effect{1};
+    int current_background_effect{0};
 
     // initializes everything in the engine
     void init();
@@ -165,6 +168,7 @@ class VulkanEngine
     void init_swapchain();
     void create_swapchain(uint32_t width, uint32_t height);
     void destroy_swapchain();
+    void resize_swapchain();
 
     void init_commands();
 

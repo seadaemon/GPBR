@@ -53,7 +53,7 @@ void VulkanEngine::init()
 
     _window_title = "GPBR";
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     _window = SDL_CreateWindow(_window_title.c_str(), //
                                _window_extent.width,  //
@@ -98,6 +98,25 @@ void VulkanEngine::destroy_swapchain()
     }
 }
 
+// TODO: Fix resizing issue when dragging window border
+// Resizing is normal when using the maximize/minimize buttons
+void VulkanEngine::resize_swapchain()
+{
+    vkDeviceWaitIdle(_device);
+
+    destroy_swapchain();
+
+    int width, height;
+    SDL_GetWindowSize(_window, &width, &height);
+
+    _window_extent.width  = width;
+    _window_extent.height = height;
+
+    create_swapchain(_window_extent.width, _window_extent.height);
+
+    _resize_requested = false;
+}
+
 void VulkanEngine::cleanup()
 {
     if (_is_initialized)
@@ -140,15 +159,6 @@ void VulkanEngine::cleanup()
 
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
-    // make clear-color | flash blue with a 120 frame period
-    VkClearColorValue clear_value;
-    float flash = std::abs(std::sin(_frame_number / 120.0f));
-    clear_value = {
-        {0.0f, 0.0f, flash, 1.0f}
-    };
-
-    VkImageSubresourceRange clear_range = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
-
     ComputeEffect& effect = background_effects[current_background_effect];
 
     // bind the background compute pipeline
@@ -170,9 +180,9 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     VkRenderingAttachmentInfo color_attachment =
         vkinit::attachment_info(_draw_image.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo depth_attachment =
-        vkinit::attachment_info(_depth_image.imageView, nullptr, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        vkinit::depth_attachment_info(_depth_image.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkRenderingInfo render_info = vkinit::rendering_info(_window_extent, &color_attachment, &depth_attachment);
+    VkRenderingInfo render_info = vkinit::rendering_info(_draw_extent, &color_attachment, &depth_attachment);
     vkCmdBeginRendering(cmd, &render_info);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _mesh_pipeline);
@@ -199,8 +209,9 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     GPUDrawPushConstants push_constants;
 
     // loading a 3D mesh
-    glm::mat4 view = glm::translate(glm::vec3{0, 0, -5}); // 5 units from origin
-    view           = glm::rotate(view, glm::radians(45.0f), glm::vec3(0, 1, 0));
+    glm::mat4 view = glm::translate(glm::vec3{0, 0, -5.0f}); // 5 units from origin
+
+    view = glm::rotate(view, glm::radians(0.4f * float(_frame_number)), glm::vec3(1, 1, 0));
 
     //  note "near" is 1000 and "far" is 0.1 because: near plane: depth 1 | far plane: depth 0
     //  this is done to increase quality of depth testing (to be seen later)
@@ -247,11 +258,25 @@ void VulkanEngine::draw()
 
     get_current_frame()._deletion_queue.flush();
 
-    // request image from the swapchain
+    // request an image from the swapchain
     uint32_t swapchain_image_index;
 
-    VK_CHECK(vkAcquireNextImageKHR(
-        _device, _swapchain, 1000000000, get_current_frame()._swapchain_semaphore, nullptr, &swapchain_image_index));
+    VkResult e = vkAcquireNextImageKHR(
+        _device, _swapchain, 1000000000, get_current_frame()._swapchain_semaphore, nullptr, &swapchain_image_index);
+
+    // VK_ERROR_OUT_OF_DATE_KHR is not guarenteed, so consider multiple cases
+    if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR)
+    {
+        _resize_requested = true;
+        return;
+    }
+    if (e != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to acquire next image from the swapchain!\n");
+    }
+
+    _draw_extent.width  = std::min(_swapchain_extent.width, _draw_image.imageExtent.width) * _render_scale;
+    _draw_extent.height = std::min(_swapchain_extent.height, _draw_image.imageExtent.height) * _render_scale;
 
     VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._render_fence));
 
@@ -264,9 +289,6 @@ void VulkanEngine::draw()
     // begin recording. This command buffer is used exactly once
     VkCommandBufferBeginInfo cmd_begin_info =
         vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-
-    _draw_extent.width  = _draw_image.imageExtent.width;
-    _draw_extent.height = _draw_image.imageExtent.height;
 
     //== BEGIN COMMAND BUFFER ========================================
 
@@ -284,7 +306,6 @@ void VulkanEngine::draw()
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vkutil::transition_image(
         cmd, _depth_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
     draw_geometry(cmd);
 
     // transition the draw image and the swapchain image into their correct transfer layouts
@@ -333,6 +354,7 @@ void VulkanEngine::draw()
 
     // submit command buffer to the queue and execute it.
     //  _renderFence will now block until the graphic commands finish execution
+
     VK_CHECK(vkQueueSubmit2(_graphics_queue, 1, &submit, get_current_frame()._render_fence));
 
     // get time stamp results
@@ -362,7 +384,14 @@ void VulkanEngine::draw()
 
     present_info.pImageIndices = &swapchain_image_index;
 
-    VK_CHECK(vkQueuePresentKHR(_graphics_queue, &present_info));
+    VkResult present_result = vkQueuePresentKHR(_graphics_queue, &present_info);
+
+    if (present_result == VK_ERROR_OUT_OF_DATE_KHR || present_result == VK_SUBOPTIMAL_KHR)
+    {
+        fmt::println("present_result out of date!");
+        _resize_requested = true;
+        return;
+    }
 
     _frame_number++;
 }
@@ -401,6 +430,10 @@ void VulkanEngine::run()
                 quit = true;
             }
             //==> WINDOW EVENTS
+            if (e.type == SDL_EVENT_WINDOW_RESIZED)
+            {
+                _resize_requested = true;
+            }
             if (e.type == SDL_EVENT_WINDOW_MINIMIZED)
             {
                 _stop_rendering = true;
@@ -434,13 +467,20 @@ void VulkanEngine::run()
             continue;
         }
 
-        // imgui new frame
+        if (_resize_requested)
+        {
+            fmt::println("RESIZING THE SWAPCHAIN");
+            resize_swapchain();
+        }
+        // Create a new ImGui frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
         if (ImGui::Begin("background"))
         {
+            ImGui::SliderFloat("Render Scale", &_render_scale, 0.3f, 1.0f);
+
             ComputeEffect& selected = background_effects[current_background_effect];
 
             ImGui::Text("Selected effect: ", selected.name);
@@ -496,9 +536,9 @@ void VulkanEngine::init_vulkan()
     SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
 
     // vulkan 1.3 features
-    VkPhysicalDeviceVulkan13Features features{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    features.dynamicRendering = true;
-    features.synchronization2 = true;
+    VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features13.dynamicRendering = true;
+    features13.synchronization2 = true;
 
     // vulkan 1.2 features
     VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
@@ -506,15 +546,21 @@ void VulkanEngine::init_vulkan()
     features12.descriptorIndexing  = true;
     features12.hostQueryReset      = true;
 
+    VkPhysicalDeviceFeatures features{};
+    features.fillModeNonSolid = true;
+
     // select a gpu
     vkb::PhysicalDeviceSelector selector{vkb_inst};
 
     selector.add_required_extension("VK_KHR_dynamic_rendering");
 
+    selector.add_required_extension("VK_EXT_extended_dynamic_state");
+
     vkb::PhysicalDevice physical_device = selector                                  //
                                               .set_minimum_version(1, 3)            //
-                                              .set_required_features_13(features)   //
+                                              .set_required_features_13(features13) //
                                               .set_required_features_12(features12) //
+                                              .set_required_features(features)      //
                                               .set_surface(_surface)                //
                                               .select()                             //
                                               .value();
@@ -591,10 +637,10 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
         swapchain_builder
             .set_desired_format(VkSurfaceFormatKHR{.format     = _swapchain_image_format,            //
                                                    .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}) //
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)     // present mode enables vsync
-            .set_desired_extent(width, height)                      //
-            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT) //
-            .build()                                                //
+            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)                                      // vsync
+            .set_desired_extent(width, height)                                                       //
+            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)                                  //
+            .build()                                                                                 //
             .value();
 
     _swapchain_extent = vkb_swapchain.extent;
@@ -608,11 +654,11 @@ void VulkanEngine::init_swapchain()
 {
     create_swapchain(_window_extent.width, _window_extent.height);
 
-    //==> INIT DRAW_IMAGE
+    // TODO: make this detect the current monitor resolution
     VkExtent3D draw_image_extent = {
-        _window_extent.width,  //
-        _window_extent.height, //
-        1                      //
+        2560, //
+        1600, //
+        1     //
     };
 
     // hardcode the draw format to a 32 bit signed float
@@ -930,7 +976,7 @@ void VulkanEngine::init_background_pipelines()
 void VulkanEngine::init_mesh_pipeline()
 {
     VkShaderModule triangle_frag_shader;
-    if (!vkutil::load_shader_module("./Shaders/colored_triangle.frag.spv", _device, &triangle_frag_shader))
+    if (!vkutil::load_shader_module("./Shaders/colored_triangle.frag.debug.spv", _device, &triangle_frag_shader))
     {
         fmt::print("Error when building the triangle fragment shader module");
     }
@@ -940,7 +986,7 @@ void VulkanEngine::init_mesh_pipeline()
     }
 
     VkShaderModule triangle_vertex_shader;
-    if (!vkutil::load_shader_module("./Shaders/colored_triangle_mesh.vert.spv", _device, &triangle_vertex_shader))
+    if (!vkutil::load_shader_module("./Shaders/colored_triangle_mesh.vert.debug.spv", _device, &triangle_vertex_shader))
     {
         fmt::print("Error when building the triangle vertex shader module");
     }
@@ -971,9 +1017,9 @@ void VulkanEngine::init_mesh_pipeline()
     pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     pipeline_builder.set_multisampling_none();
     // pipeline_builder.disable_blending();
-    //  pipeline_builder.enable_blending_additive();
+    // pipeline_builder.enable_blending_additive();
     pipeline_builder.enable_blending_alphablend();
-    //   pipeline_builder.disable_depthtest();
+    // pipeline_builder.disable_depthtest();
     pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
     pipeline_builder.set_color_attachment_format(_draw_image.imageFormat);
