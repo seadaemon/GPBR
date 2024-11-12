@@ -36,6 +36,7 @@ struct FrameData
     VkCommandBuffer _main_command_buffer;
 
     DeletionQueue _deletion_queue;
+    DescriptorAllocatorGrowable _frame_descriptors;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -135,8 +136,10 @@ class VulkanEngine
     AllocatedImage _draw_image;
     AllocatedImage _depth_image;
 
-    std::vector<ComputeEffect> background_effects;
+    GPUSceneData _scene_data;
+    VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
 
+    std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
 
     // initializes everything in the engine
@@ -162,6 +165,16 @@ class VulkanEngine
     AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
     void destroy_buffer(const AllocatedBuffer& buffer);
 
+    // TODO: CONTINUE HERE
+    /*
+    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage create_image(void* data, //
+                                VkExtent3D size,
+                                VkFormat format,
+                                VkImageUsageFlags usage,
+                                bool mipmapped = false);
+    void destroy_image(const AllocatedImage& image);
+    */
   private:
     void init_vulkan();
 
