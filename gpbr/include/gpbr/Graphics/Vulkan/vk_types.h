@@ -21,10 +21,10 @@
 struct AllocatedImage
 {
     VkImage image;
-    VkImageView imageView;
+    VkImageView image_view;
     VmaAllocation allocation;
-    VkExtent3D imageExtent;
-    VkFormat imageFormat;
+    VkExtent3D image_extent;
+    VkFormat image_format;
 };
 
 struct AllocatedBuffer
@@ -105,7 +105,7 @@ struct DrawContext;
 class IRenderable
 {
 
-    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+    virtual void Draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
 };
 
 // implementation of a drawable scene node.
@@ -130,12 +130,12 @@ struct Node : public IRenderable
         }
     }
 
-    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx)
+    virtual void Draw(const glm::mat4& top_matrix, DrawContext& ctx)
     {
         // draw children
         for (auto& c : children)
         {
-            c->Draw(topMatrix, ctx);
+            c->Draw(top_matrix, ctx);
         }
     }
 };

@@ -225,9 +225,9 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
     // begin a render pass  connected to draw_image
     VkRenderingAttachmentInfo color_attachment =
-        vkinit::attachment_info(_draw_image.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkinit::attachment_info(_draw_image.image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo depth_attachment =
-        vkinit::depth_attachment_info(_depth_image.imageView, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        vkinit::depth_attachment_info(_depth_image.image_view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo render_info = vkinit::rendering_info(_draw_extent, &color_attachment, &depth_attachment);
     vkCmdBeginRendering(cmd, &render_info);
@@ -259,7 +259,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     {
         DescriptorWriter writer;
         writer.write_image(0,
-                           _error_checkerboard_image.imageView,
+                           _error_checkerboard_image.image_view,
                            _default_sampler_nearest,
                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -354,8 +354,8 @@ void VulkanEngine::draw()
         throw std::runtime_error("Failed to acquire next image from the swapchain!\n");
     }
 
-    _draw_extent.width  = std::min(_swapchain_extent.width, _draw_image.imageExtent.width) * _render_scale;
-    _draw_extent.height = std::min(_swapchain_extent.height, _draw_image.imageExtent.height) * _render_scale;
+    _draw_extent.width  = std::min(_swapchain_extent.width, _draw_image.image_extent.width) * _render_scale;
+    _draw_extent.height = std::min(_swapchain_extent.height, _draw_image.image_extent.height) * _render_scale;
 
     VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._render_fence));
 
@@ -742,8 +742,8 @@ void VulkanEngine::init_swapchain()
     };
 
     // hardcode the draw format to a 32 bit signed float
-    _draw_image.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-    _draw_image.imageExtent = draw_image_extent;
+    _draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    _draw_image.image_extent = draw_image_extent;
 
     VkImageUsageFlags draw_image_usages{};
     draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -752,7 +752,7 @@ void VulkanEngine::init_swapchain()
     draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     VkImageCreateInfo rimg_info =
-        vkinit::image_create_info(_draw_image.imageFormat, draw_image_usages, draw_image_extent);
+        vkinit::image_create_info(_draw_image.image_format, draw_image_usages, draw_image_extent);
 
     // for the draw image, we want to allocate it from gpu local memory
     VmaAllocationCreateInfo rimg_allocinfo = {};
@@ -764,37 +764,37 @@ void VulkanEngine::init_swapchain()
 
     // build a image-view for the draw image to use for rendering
     VkImageViewCreateInfo rview_info =
-        vkinit::imageview_create_info(_draw_image.imageFormat, _draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        vkinit::imageview_create_info(_draw_image.image_format, _draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_draw_image.imageView));
+    VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_draw_image.image_view));
     //<== END INIT DRAW_IMAGE
 
     //==> INIT DEPTH_IMAGE
-    _depth_image.imageFormat = VK_FORMAT_D32_SFLOAT;
-    _depth_image.imageExtent = draw_image_extent;
+    _depth_image.image_format = VK_FORMAT_D32_SFLOAT;
+    _depth_image.image_extent = draw_image_extent;
     VkImageUsageFlags depth_image_usages{};
     depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
     VkImageCreateInfo dimg_info =
-        vkinit::image_create_info(_depth_image.imageFormat, depth_image_usages, draw_image_extent);
+        vkinit::image_create_info(_depth_image.image_format, depth_image_usages, draw_image_extent);
 
     // allocate and create the image
     vmaCreateImage(_allocator, &dimg_info, &rimg_allocinfo, &_depth_image.image, &_depth_image.allocation, nullptr);
 
     // build a image-view for the draw image to use for rendering
     VkImageViewCreateInfo dview_info =
-        vkinit::imageview_create_info(_depth_image.imageFormat, _depth_image.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vkinit::imageview_create_info(_depth_image.image_format, _depth_image.image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depth_image.imageView));
+    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depth_image.image_view));
     //<== END INIT DEPTH_IMAGE
 
     _main_deletion_queue.push_function(
         [=]()
         {
-            vkDestroyImageView(_device, _draw_image.imageView, nullptr);
+            vkDestroyImageView(_device, _draw_image.image_view, nullptr);
             vmaDestroyImage(_allocator, _draw_image.image, _draw_image.allocation);
 
-            vkDestroyImageView(_device, _depth_image.imageView, nullptr);
+            vkDestroyImageView(_device, _depth_image.image_view, nullptr);
             vmaDestroyImage(_allocator, _depth_image.image, _depth_image.allocation);
         });
 }
@@ -1103,8 +1103,8 @@ void VulkanEngine::init_mesh_pipeline()
     // pipeline_builder.disable_depthtest();
     pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
-    pipeline_builder.set_color_attachment_format(_draw_image.imageFormat);
-    pipeline_builder.set_depth_format(_depth_image.imageFormat);
+    pipeline_builder.set_color_attachment_format(_draw_image.image_format);
+    pipeline_builder.set_depth_format(_depth_image.image_format);
 
     _mesh_pipeline = pipeline_builder.build_pipeline(_device);
 
@@ -1153,7 +1153,7 @@ void VulkanEngine::init_descriptors()
     {
         DescriptorWriter writer;
         writer.write_image(
-            0, _draw_image.imageView, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            0, _draw_image.image_view, VK_NULL_HANDLE, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         writer.update_set(_device, _draw_image_descriptors);
     }
@@ -1274,8 +1274,8 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size,
                                           bool mipmapped /*= false*/)
 {
     AllocatedImage new_image;
-    new_image.imageFormat = format;
-    new_image.imageExtent = size;
+    new_image.image_format = format;
+    new_image.image_extent = size;
 
     VkImageCreateInfo img_info = vkinit::image_create_info(format, usage, size);
     if (mipmapped)
@@ -1302,7 +1302,7 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size,
     VkImageViewCreateInfo view_info       = vkinit::imageview_create_info(format, new_image.image, aspectFlag);
     view_info.subresourceRange.levelCount = img_info.mipLevels;
 
-    VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &new_image.imageView));
+    VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &new_image.image_view));
 
     return new_image;
 }
@@ -1355,6 +1355,6 @@ AllocatedImage VulkanEngine::create_image(void* data,
 
 void VulkanEngine::destroy_image(const AllocatedImage& image)
 {
-    vkDestroyImageView(_device, image.imageView, nullptr);
+    vkDestroyImageView(_device, image.image_view, nullptr);
     vmaDestroyImage(_allocator, image.image, image.allocation);
 }

@@ -1,12 +1,12 @@
 #include "gpbr/Graphics/Vulkan/vk_initializers.h"
-//> init_cmd
-VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex,
+
+VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queue_family_index,
                                                          VkCommandPoolCreateFlags flags /*= 0*/)
 {
     VkCommandPoolCreateInfo info = {};
     info.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     info.pNext                   = nullptr;
-    info.queueFamilyIndex        = queueFamilyIndex;
+    info.queueFamilyIndex        = queue_family_index;
     info.flags                   = flags;
     return info;
 }
@@ -35,8 +35,9 @@ VkCommandBufferBeginInfo vkinit::command_buffer_begin_info(VkCommandBufferUsageF
     return info;
 }
 
-VkQueryPoolCreateInfo
-vkinit::query_pool_create_info(VkQueryType query_type, uint32_t count /*= 1*/, VkQueryPoolCreateFlags flags /*= 0*/)
+VkQueryPoolCreateInfo vkinit::query_pool_create_info(VkQueryType query_type,
+                                                     uint32_t count /*= 1*/,
+                                                     VkQueryPoolCreateFlags flags /*= 0*/)
 {
     VkQueryPoolCreateInfo info = {};
     info.sType                 = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
@@ -71,17 +72,17 @@ VkSemaphoreCreateInfo vkinit::semaphore_create_info(VkSemaphoreCreateFlags flags
 //< init_sync
 
 //> init_submit
-VkSemaphoreSubmitInfo vkinit::semaphore_submit_info(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+VkSemaphoreSubmitInfo vkinit::semaphore_submit_info(VkPipelineStageFlags2 stage_mask, VkSemaphore semaphore)
 {
-    VkSemaphoreSubmitInfo submitInfo{};
-    submitInfo.sType       = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-    submitInfo.pNext       = nullptr;
-    submitInfo.semaphore   = semaphore;
-    submitInfo.stageMask   = stageMask;
-    submitInfo.deviceIndex = 0;
-    submitInfo.value       = 1;
+    VkSemaphoreSubmitInfo submit_info{};
+    submit_info.sType       = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    submit_info.pNext       = nullptr;
+    submit_info.semaphore   = semaphore;
+    submit_info.stageMask   = stage_mask;
+    submit_info.deviceIndex = 0;
+    submit_info.value       = 1;
 
-    return submitInfo;
+    return submit_info;
 }
 
 VkCommandBufferSubmitInfo vkinit::command_buffer_submit_info(VkCommandBuffer cmd)
@@ -96,25 +97,24 @@ VkCommandBufferSubmitInfo vkinit::command_buffer_submit_info(VkCommandBuffer cmd
 }
 
 VkSubmitInfo2 vkinit::submit_info(VkCommandBufferSubmitInfo* cmd,
-                                  VkSemaphoreSubmitInfo* signalSemaphoreInfo,
-                                  VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+                                  VkSemaphoreSubmitInfo* signal_semaphore_info,
+                                  VkSemaphoreSubmitInfo* wait_semaphore_info)
 {
     VkSubmitInfo2 info = {};
     info.sType         = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
     info.pNext         = nullptr;
 
-    info.waitSemaphoreInfoCount = waitSemaphoreInfo == nullptr ? 0 : 1;
-    info.pWaitSemaphoreInfos    = waitSemaphoreInfo;
+    info.waitSemaphoreInfoCount = wait_semaphore_info == nullptr ? 0 : 1;
+    info.pWaitSemaphoreInfos    = wait_semaphore_info;
 
-    info.signalSemaphoreInfoCount = signalSemaphoreInfo == nullptr ? 0 : 1;
-    info.pSignalSemaphoreInfos    = signalSemaphoreInfo;
+    info.signalSemaphoreInfoCount = signal_semaphore_info == nullptr ? 0 : 1;
+    info.pSignalSemaphoreInfos    = signal_semaphore_info;
 
     info.commandBufferInfoCount = 1;
     info.pCommandBufferInfos    = cmd;
 
     return info;
 }
-//< init_submit
 
 VkPresentInfoKHR vkinit::present_info()
 {
@@ -152,8 +152,9 @@ VkRenderingAttachmentInfo vkinit::attachment_info(VkImageView view,
     return colorAttachment;
 }
 
-VkRenderingAttachmentInfo
-vkinit::depth_attachment_info(VkImageView view, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
+VkRenderingAttachmentInfo vkinit::depth_attachment_info(
+    VkImageView view,
+    VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
 {
     VkRenderingAttachmentInfo depth_attachment{};
     depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -172,27 +173,27 @@ VkRenderingInfo vkinit::rendering_info(VkExtent2D render_extent,
                                        VkRenderingAttachmentInfo* color_attachment,
                                        VkRenderingAttachmentInfo* depth_attachment)
 {
-    VkRenderingInfo renderInfo{};
-    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderInfo.pNext = nullptr;
+    VkRenderingInfo render_info{};
+    render_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    render_info.pNext = nullptr;
 
-    renderInfo.renderArea = VkRect2D{
+    render_info.renderArea = VkRect2D{
         VkOffset2D{0, 0},
         render_extent
     };
-    renderInfo.layerCount           = 1;
-    renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachments    = color_attachment;
-    renderInfo.pDepthAttachment     = depth_attachment;
-    renderInfo.pStencilAttachment   = nullptr;
+    render_info.layerCount           = 1;
+    render_info.colorAttachmentCount = 1;
+    render_info.pColorAttachments    = color_attachment;
+    render_info.pDepthAttachment     = depth_attachment;
+    render_info.pStencilAttachment   = nullptr;
 
-    return renderInfo;
+    return render_info;
 }
 
-VkImageSubresourceRange vkinit::image_subresource_range(VkImageAspectFlags aspectMask)
+VkImageSubresourceRange vkinit::image_subresource_range(VkImageAspectFlags aspect_mask)
 {
     VkImageSubresourceRange subImage{};
-    subImage.aspectMask     = aspectMask;
+    subImage.aspectMask     = aspect_mask;
     subImage.baseMipLevel   = 0;
     subImage.levelCount     = VK_REMAINING_MIP_LEVELS;
     subImage.baseArrayLayer = 0;
@@ -200,38 +201,38 @@ VkImageSubresourceRange vkinit::image_subresource_range(VkImageAspectFlags aspec
 
     return subImage;
 }
-//< subresource
 
-VkDescriptorSetLayoutBinding
-vkinit::descriptorset_layout_binding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding)
+VkDescriptorSetLayoutBinding vkinit::descriptorset_layout_binding(VkDescriptorType type,
+                                                                  VkShaderStageFlags stage_flags,
+                                                                  uint32_t binding)
 {
-    VkDescriptorSetLayoutBinding setbind = {};
-    setbind.binding                      = binding;
-    setbind.descriptorCount              = 1;
-    setbind.descriptorType               = type;
-    setbind.pImmutableSamplers           = nullptr;
-    setbind.stageFlags                   = stageFlags;
+    VkDescriptorSetLayoutBinding set_bind = {};
+    set_bind.binding                      = binding;
+    set_bind.descriptorCount              = 1;
+    set_bind.descriptorType               = type;
+    set_bind.pImmutableSamplers           = nullptr;
+    set_bind.stageFlags                   = stage_flags;
 
-    return setbind;
+    return set_bind;
 }
 
 VkDescriptorSetLayoutCreateInfo vkinit::descriptorset_layout_create_info(VkDescriptorSetLayoutBinding* bindings,
-                                                                         uint32_t bindingCount)
+                                                                         uint32_t binding_count)
 {
     VkDescriptorSetLayoutCreateInfo info = {};
     info.sType                           = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     info.pNext                           = nullptr;
 
     info.pBindings    = bindings;
-    info.bindingCount = bindingCount;
+    info.bindingCount = binding_count;
     info.flags        = 0;
 
     return info;
 }
 
 VkWriteDescriptorSet vkinit::write_descriptor_image(VkDescriptorType type,
-                                                    VkDescriptorSet dstSet,
-                                                    VkDescriptorImageInfo* imageInfo,
+                                                    VkDescriptorSet dst_set,
+                                                    VkDescriptorImageInfo* image_info,
                                                     uint32_t binding)
 {
     VkWriteDescriptorSet write = {};
@@ -239,17 +240,17 @@ VkWriteDescriptorSet vkinit::write_descriptor_image(VkDescriptorType type,
     write.pNext                = nullptr;
 
     write.dstBinding      = binding;
-    write.dstSet          = dstSet;
+    write.dstSet          = dst_set;
     write.descriptorCount = 1;
     write.descriptorType  = type;
-    write.pImageInfo      = imageInfo;
+    write.pImageInfo      = image_info;
 
     return write;
 }
 
 VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type,
-                                                     VkDescriptorSet dstSet,
-                                                     VkDescriptorBufferInfo* bufferInfo,
+                                                     VkDescriptorSet dst_set,
+                                                     VkDescriptorBufferInfo* buffer_info,
                                                      uint32_t binding)
 {
     VkWriteDescriptorSet write = {};
@@ -257,25 +258,25 @@ VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type,
     write.pNext                = nullptr;
 
     write.dstBinding      = binding;
-    write.dstSet          = dstSet;
+    write.dstSet          = dst_set;
     write.descriptorCount = 1;
     write.descriptorType  = type;
-    write.pBufferInfo     = bufferInfo;
+    write.pBufferInfo     = buffer_info;
 
     return write;
 }
 
 VkDescriptorBufferInfo vkinit::buffer_info(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range)
 {
-    VkDescriptorBufferInfo binfo{};
-    binfo.buffer = buffer;
-    binfo.offset = offset;
-    binfo.range  = range;
-    return binfo;
+    VkDescriptorBufferInfo buffer_info{};
+    buffer_info.buffer = buffer;
+    buffer_info.offset = offset;
+    buffer_info.range  = range;
+    return buffer_info;
 }
 
 //> image_set
-VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -294,12 +295,12 @@ VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags u
 
     // optimal tiling, which means the image is stored on the best gpu format
     info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage  = usageFlags;
+    info.usage  = usage_flags;
 
     return info;
 }
 
-VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags)
 {
     // build a image-view for the depth image to use for rendering
     VkImageViewCreateInfo info = {};
@@ -313,7 +314,7 @@ VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage ima
     info.subresourceRange.levelCount     = 1;
     info.subresourceRange.baseArrayLayer = 0;
     info.subresourceRange.layerCount     = 1;
-    info.subresourceRange.aspectMask     = aspectFlags;
+    info.subresourceRange.aspectMask     = aspect_flags;
 
     return info;
 }
@@ -333,8 +334,9 @@ VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info()
     return info;
 }
 
-VkPipelineShaderStageCreateInfo
-vkinit::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const char* entry)
+VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage,
+                                                                          VkShaderModule shader_module,
+                                                                          const char* entry)
 {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -343,7 +345,7 @@ vkinit::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderM
     // shader stage
     info.stage = stage;
     // module containing the code for this shader stage
-    info.module = shaderModule;
+    info.module = shader_module;
     // the entry point of the shader
     info.pName = entry;
     return info;
