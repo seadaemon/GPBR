@@ -16,5 +16,5 @@ void main()
 	vec3 color = inColor * texture(colorTex,inUV).xyz;
 	vec3 ambient = color *  sceneData.ambient_color.xyz;
 
-	outFragColor = vec4(color * light_value *  sceneData.sunlight_color.w + ambient ,1.0f);
+	outFragColor = vec4(color * light_value * sceneData.sunlight_color.w + ambient, 1.0f);
 }

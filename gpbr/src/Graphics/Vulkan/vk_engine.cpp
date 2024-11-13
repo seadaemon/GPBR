@@ -384,8 +384,10 @@ void VulkanEngine::update_scene()
     }
     */
     _scene_data.view = glm::translate(glm::vec3{0, 0, -5});
-    _scene_data.view =
-        glm::rotate(_scene_data.view, glm::radians(45.0f * glm::sin(0.05f * _frame_number)), glm::vec3(0, 1, 0));
+
+    //_scene_data.view =
+    // glm::rotate(_scene_data.view, glm::radians(45.0f * glm::sin(0.05f * _frame_number)), glm::vec3(0, 1, 0));
+
     // camera projection
     _scene_data.proj =
         glm::perspective(glm::radians(70.f), (float)_window_extent.width / (float)_window_extent.height, 10000.f, 0.1f);
@@ -395,7 +397,7 @@ void VulkanEngine::update_scene()
     _scene_data.proj[1][1] *= -1;
     _scene_data.view_proj = _scene_data.proj * _scene_data.view;
 
-    // some default lighting parameters
+    // parameters for a directional light
     _scene_data.ambient_color      = glm::vec4(.1f);
     _scene_data.sunlight_color     = glm::vec4(1.f);
     _scene_data.sunlight_direction = glm::vec4(0, 1, 0.5, 1.f);

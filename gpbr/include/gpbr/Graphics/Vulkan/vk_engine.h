@@ -124,7 +124,7 @@ class VulkanEngine
 {
   public:
     bool _is_initialized{false};
-    int _frame_number{0};
+    int _frame_number{0}; // The number of frames elapsed since launch
     bool _stop_rendering{false};
     VkExtent2D _window_extent{1700, 900};
     // VkExtent2D _window_extent{1920, 1080};
