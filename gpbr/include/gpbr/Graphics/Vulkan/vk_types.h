@@ -36,7 +36,7 @@ struct AllocatedBuffer
 
 struct GPUGLTFMaterial
 {
-    glm::vec4 colorFactors;
+    glm::vec4 color_factors;
     glm::vec4 metal_rough_factors;
     glm::vec4 extra[14];
 };
@@ -69,8 +69,8 @@ struct MaterialPipeline
 struct MaterialInstance
 {
     MaterialPipeline* pipeline;
-    VkDescriptorSet materialSet;
-    MaterialPass passType;
+    VkDescriptorSet material_set;
+    MaterialPass pass_type;
 };
 
 struct Vertex
@@ -118,15 +118,15 @@ struct Node : public IRenderable
     std::weak_ptr<Node> parent;
     std::vector<std::shared_ptr<Node>> children;
 
-    glm::mat4 localTransform;
-    glm::mat4 worldTransform;
+    glm::mat4 local_transform;
+    glm::mat4 world_transform;
 
     void refreshTransform(const glm::mat4& parentMatrix)
     {
-        worldTransform = parentMatrix * localTransform;
+        world_transform = parentMatrix * local_transform;
         for (auto c : children)
         {
-            c->refreshTransform(worldTransform);
+            c->refreshTransform(world_transform);
         }
     }
 

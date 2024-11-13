@@ -88,7 +88,7 @@ void VulkanEngine::init_default_data()
 
     test_meshes = load_gltf_meshes(this, ".\\Assets\\basicmesh.glb").value();
 
-    // 3 default textures (white, grey, black) 1 pixel for each
+    //= 3 default textures (white, grey, black) 1 pixel for each ===============
     uint32_t white = glm::packUnorm4x8(glm::vec4(1.f, 1.f, 1.f, 1.f));
     _white_image =
         create_image((void*)&white, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
@@ -100,7 +100,7 @@ void VulkanEngine::init_default_data()
     _black_image =
         create_image((void*)&black, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
-    // 16x16 checkerboard image
+    //= 16x16 checkerboard image ===============================================
     uint32_t magenta = glm::packUnorm4x8(glm::vec4(1.f, 0.f, 1.f, 1.f));
     std::array<uint32_t, 16 * 16> pixels;
     for (int x = 0; x < 16; x++)
@@ -117,7 +117,6 @@ void VulkanEngine::init_default_data()
 
     sampler_info.magFilter = VK_FILTER_NEAREST;
     sampler_info.minFilter = VK_FILTER_NEAREST;
-
     vkCreateSampler(_device, &sampler_info, nullptr, &_default_sampler_nearest);
 
     sampler_info.magFilter = VK_FILTER_LINEAR;
@@ -254,7 +253,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _mesh_pipeline);
 
-    // bind a texture
+    //= bind a texture =========================================================
     VkDescriptorSet image_set =
         get_current_frame()._frame_descriptors.allocate(_device, _single_image_descriptor_layout);
     {
@@ -270,7 +269,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _mesh_pipeline_layout, 0, 1, &image_set, 0, nullptr);
 
-    // loading a 3D mesh
+    //= loading a 3D mesh ======================================================
     glm::mat4 view = glm::translate(glm::vec3{0, 0, -5.0f}); // 5 units from origin
 
     view = glm::rotate(view, glm::radians(0.4f * float(_frame_number)), glm::vec3(1, 1, 0));
