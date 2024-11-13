@@ -7,6 +7,8 @@ add_executable(gpbr
     Graphics/Vulkan/vk_pipelines.cpp
     Graphics/Vulkan/vk_loader.cpp
 
+    Graphics/camera.cpp
+
     src/Util/imgui_util.cpp
 )
 set_target_properties(gpbr PROPERTIES

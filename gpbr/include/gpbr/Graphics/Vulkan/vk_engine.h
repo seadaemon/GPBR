@@ -7,6 +7,7 @@
 #include <functional>
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include "../camera.h"
 
 // A FILO queue that stores function callbacks
 struct DeletionQueue
@@ -222,6 +223,8 @@ class VulkanEngine
 
     std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
+
+    Camera _main_camera;
 
     // initializes everything in the engine
     void init();

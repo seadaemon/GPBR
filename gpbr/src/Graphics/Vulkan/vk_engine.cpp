@@ -81,6 +81,11 @@ void VulkanEngine::init()
     init_default_data();
 
     _is_initialized = true;
+
+    _main_camera.velocity = glm::vec3(0.f);
+    _main_camera.position = glm::vec3(0, 0, 5);
+    _main_camera.pitch    = 0.f;
+    _main_camera.yaw      = 0.f;
 }
 
 void VulkanEngine::init_default_data()
@@ -370,32 +375,36 @@ void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view
 
 void VulkanEngine::update_scene()
 {
-    _main_draw_context.opaque_surfaces.clear();
+    _main_camera.update();
 
-    _loaded_nodes["Suzanne"]->draw(glm::mat4{1.f}, _main_draw_context);
-    /*
-    for (int x = -3; x < 3; x++)
-    {
-
-        glm::mat4 scale       = glm::scale(glm::vec3{0.2});
-        glm::mat4 translation = glm::translate(glm::vec3{x, 1, 0});
-
-        _loaded_nodes["Cube"]->draw(translation * scale, _main_draw_context);
-    }
-    */
-    _scene_data.view = glm::translate(glm::vec3{0, 0, -5});
-
-    //_scene_data.view =
-    // glm::rotate(_scene_data.view, glm::radians(45.0f * glm::sin(0.05f * _frame_number)), glm::vec3(0, 1, 0));
-
-    // camera projection
-    _scene_data.proj =
-        glm::perspective(glm::radians(70.f), (float)_window_extent.width / (float)_window_extent.height, 10000.f, 0.1f);
+    glm::mat4 view = _main_camera.get_view_matrix();
+    glm::mat4 projection =
+        glm::perspective(glm::radians(70.0f), (float)_draw_extent.width / (float)_draw_extent.height, 1000.f, 0.1f);
 
     // invert the Y direction on projection matrix so that we are more similar
     // to opengl and gltf axis
-    _scene_data.proj[1][1] *= -1;
-    _scene_data.view_proj = _scene_data.proj * _scene_data.view;
+    projection[1][1] *= -1;
+
+    _scene_data.view      = view;
+    _scene_data.proj      = projection;
+    _scene_data.view_proj = projection * view;
+
+    //=====================================================================================
+
+    _main_draw_context.opaque_surfaces.clear();
+
+    _loaded_nodes["Suzanne"]->draw(glm::mat4{1.f}, _main_draw_context);
+
+    //_scene_data.view = glm::translate(glm::vec3{0, 0, -5});
+
+    // camera projection
+    //_scene_data.proj =
+    // glm::perspective(glm::radians(70.f), (float)_window_extent.width / (float)_window_extent.height, 10000.f, 0.1f);
+
+    // invert the Y direction on projection matrix so that we are more similar
+    // to opengl and gltf axis
+    //_scene_data.proj[1][1] *= -1;
+    //_scene_data.view_proj = _scene_data.proj * _scene_data.view;
 
     // parameters for a directional light
     _scene_data.ambient_color      = glm::vec4(.1f);
@@ -551,7 +560,6 @@ void VulkanEngine::draw()
     _frame_number++;
 }
 
-//==> MAIN LOOP
 void VulkanEngine::run()
 {
     // Fixed timestep
@@ -599,6 +607,7 @@ void VulkanEngine::run()
             }
             //<== WINDOW EVENTS
 
+            _main_camera.process_SDL_event(e);
             ImGui_ImplSDL3_ProcessEvent(&e);
 
             //==> INPUT EVENTS
@@ -668,7 +677,6 @@ void VulkanEngine::run()
         }
     }
 }
-//<== MAIN LOOP
 
 void VulkanEngine::init_vulkan()
 {
