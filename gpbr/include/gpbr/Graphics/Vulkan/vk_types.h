@@ -53,19 +53,21 @@ struct GPUSceneData
     glm::vec4 sunlight_color;
 };
 
-//> mat_types
 enum class MaterialPass : uint8_t
 {
     MainColor,
     Transparent,
     Other
 };
+
+// Specifies a pipeline and pipeline layout for a given material
 struct MaterialPipeline
 {
     VkPipeline pipeline;
     VkPipelineLayout layout;
 };
 
+// Specifies a pipeline and descriptor set for a given material
 struct MaterialInstance
 {
     MaterialPipeline* pipeline;
@@ -101,10 +103,9 @@ struct GPUDrawPushConstants
 
 struct DrawContext;
 
-// base class for a renderable dynamic object
+// Base class for a renderable dynamic object
 class IRenderable
 {
-
     virtual void Draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
 };
 

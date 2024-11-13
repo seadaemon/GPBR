@@ -58,7 +58,46 @@ struct ComputeEffect
 
     ComputePushConstants data;
 };
+// TODO: CONTINUE HERE https://vkguide.dev/docs/new_chapter_4/materials/
+/*
+// Contains glTF PBR parameters
+struct GLTFMetallic_Roughness
+{
+    MaterialPipeline opaque_pipeline;
+    MaterialPipeline transparent_pipeline;
 
+    VkDescriptorSetLayout material_layout;
+
+    struct MaterialConstants
+    {
+        glm::vec4 color_factors;
+        glm::vec4 metal_rough_factors;
+        glm::vec4 extra[14]; // padding
+    };
+
+    struct MaterialResources
+    {
+        AllocatedImage color_image;
+        VkSampler color_sampler;
+        AllocatedImage metal_rough_image;
+        VkSampler metal_rough_sampler;
+        VkBuffer data_buffer;
+        uint32_t data_buffer_offset;
+    };
+
+    DescriptorWriter writer;
+
+    void build_pipelines(VulkanEngine* engine);
+    void clear_resources(VkDevice device);
+
+    MaterialInstance write_material(VkDevice device,
+                                    MaterialPass pass,
+                                    const MaterialResources& resources,
+                                    DescriptorAllocatorGrowable& descriptor_allocator);
+};
+*/
+
+// Contains data for a single vkCmdDrawIndexed
 struct RenderObject
 {
     uint32_t index_count;
