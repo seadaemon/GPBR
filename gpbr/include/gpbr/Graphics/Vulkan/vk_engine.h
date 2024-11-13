@@ -7,6 +7,7 @@
 #include <functional>
 #include "vk_descriptors.h"
 #include "vk_loader.h"
+#include "../camera.h"
 
 // A FILO queue that stores function callbacks
 struct DeletionQueue
@@ -36,6 +37,7 @@ struct FrameData
     VkCommandBuffer _main_command_buffer;
 
     DeletionQueue _deletion_queue;
+    DescriptorAllocatorGrowable _frame_descriptors;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -58,11 +60,72 @@ struct ComputeEffect
     ComputePushConstants data;
 };
 
+// Contains glTF PBR parameters
+struct GLTFMetallic_Roughness
+{
+    MaterialPipeline opaque_pipeline;
+    MaterialPipeline transparent_pipeline;
+
+    VkDescriptorSetLayout material_layout;
+
+    struct MaterialConstants
+    {
+        glm::vec4 color_factors;
+        glm::vec4 metal_rough_factors;
+        glm::vec4 extra[14]; // padding
+    };
+
+    struct MaterialResources
+    {
+        AllocatedImage color_image;
+        VkSampler color_sampler;
+        AllocatedImage metal_rough_image;
+        VkSampler metal_rough_sampler;
+        VkBuffer data_buffer;
+        uint32_t data_buffer_offset;
+    };
+
+    DescriptorWriter writer;
+
+    void build_pipelines(VulkanEngine* engine);
+    void clear_resources(VkDevice device);
+
+    MaterialInstance write_material(VkDevice device,
+                                    MaterialPass pass,
+                                    const MaterialResources& resources,
+                                    DescriptorAllocatorGrowable& descriptor_allocator);
+};
+
+// Contains data for a single vkCmdDrawIndexed
+struct RenderObject
+{
+    uint32_t index_count;
+    uint32_t first_index;
+    VkBuffer index_buffer;
+
+    MaterialInstance* material;
+
+    glm::mat4 transform;
+    VkDeviceAddress vertex_buffer_address;
+};
+
+struct DrawContext
+{
+    std::vector<RenderObject> opaque_surfaces;
+};
+
+struct MeshNode : public Node
+{
+    std::shared_ptr<MeshAsset> mesh;
+
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
+};
+
 class VulkanEngine
 {
   public:
     bool _is_initialized{false};
-    int _frame_number{0};
+    int _frame_number{0}; // The number of frames elapsed since launch
     bool _stop_rendering{false};
     VkExtent2D _window_extent{1700, 900};
     // VkExtent2D _window_extent{1920, 1080};
@@ -74,7 +137,7 @@ class VulkanEngine
     static VulkanEngine& get();
 
     VkInstance _instance;                      // Vulkan library handle
-    VkDebugUtilsMessengerEXT _debug_messenger; // debug output handle
+    VkDebugUtilsMessengerEXT _debug_messenger; // debugging output handle
     VkPhysicalDevice _chosen_GPU;              // selected GPU
     VkDevice _device;                          // device for commands
     VkSurfaceKHR _surface;                     // window surface
@@ -106,7 +169,7 @@ class VulkanEngine
     // 1 second delay between updates
     float _FPS_delay{1.0f};
 
-    DescriptorAllocator global_descriptor_allocator;
+    DescriptorAllocatorGrowable global_descriptor_allocator;
 
     VkPipeline _gradient_pipeline;
     VkPipelineLayout _gradient_pipeline_layout;
@@ -117,6 +180,8 @@ class VulkanEngine
     */
     VkDescriptorSet _draw_image_descriptors;
     VkDescriptorSetLayout _draw_image_descriptor_layout;
+
+    VkDescriptorSetLayout _single_image_descriptor_layout;
 
     DeletionQueue _main_deletion_queue;
 
@@ -135,9 +200,31 @@ class VulkanEngine
     AllocatedImage _draw_image;
     AllocatedImage _depth_image;
 
-    std::vector<ComputeEffect> background_effects;
+    AllocatedImage _white_image;
+    AllocatedImage _black_image;
+    AllocatedImage _grey_image;
+    AllocatedImage _error_checkerboard_image;
 
+    VkSampler _default_sampler_linear;  // linar filtering (blur)
+    VkSampler _default_sampler_nearest; // nearest neighbor filtering
+
+    // draw resources
+
+    DrawContext _main_draw_context;
+    GPUSceneData _scene_data;
+    MaterialInstance _default_data;
+
+    GLTFMetallic_Roughness _metal_rough_material;
+
+    std::unordered_map<std::string, std::shared_ptr<Node>> _loaded_nodes;
+
+    VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
+    // VkDescriptorSetLayout _gltf_mat_descriptor_layout;
+
+    std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
+
+    Camera _main_camera;
 
     // initializes everything in the engine
     void init();
@@ -152,6 +239,8 @@ class VulkanEngine
     void draw_geometry(VkCommandBuffer cmd);
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
 
+    void update_scene();
+
     // run main loop
     void run();
 
@@ -161,6 +250,14 @@ class VulkanEngine
 
     AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
     void destroy_buffer(const AllocatedBuffer& buffer);
+
+    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage create_image(void* data,
+                                VkExtent3D size,
+                                VkFormat format,
+                                VkImageUsageFlags usage,
+                                bool mipmapped = false);
+    void destroy_image(const AllocatedImage& image);
 
   private:
     void init_vulkan();

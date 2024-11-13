@@ -21,10 +21,10 @@
 struct AllocatedImage
 {
     VkImage image;
-    VkImageView imageView;
+    VkImageView image_view;
     VmaAllocation allocation;
-    VkExtent3D imageExtent;
-    VkFormat imageFormat;
+    VkExtent3D image_extent;
+    VkFormat image_format;
 };
 
 struct AllocatedBuffer
@@ -36,7 +36,7 @@ struct AllocatedBuffer
 
 struct GPUGLTFMaterial
 {
-    glm::vec4 colorFactors;
+    glm::vec4 color_factors;
     glm::vec4 metal_rough_factors;
     glm::vec4 extra[14];
 };
@@ -47,30 +47,32 @@ struct GPUSceneData
 {
     glm::mat4 view;
     glm::mat4 proj;
-    glm::mat4 viewproj;
-    glm::vec4 ambientColor;
-    glm::vec4 sunlightDirection; // w for sun power
-    glm::vec4 sunlightColor;
+    glm::mat4 view_proj;
+    glm::vec4 ambient_color;
+    glm::vec4 sunlight_direction; // xyz for direction; w for intensity
+    glm::vec4 sunlight_color;
 };
 
-//> mat_types
 enum class MaterialPass : uint8_t
 {
     MainColor,
     Transparent,
     Other
 };
+
+// Specifies a pipeline and pipeline layout for a given material
 struct MaterialPipeline
 {
     VkPipeline pipeline;
     VkPipelineLayout layout;
 };
 
+// Specifies a pipeline and descriptor set for a given material
 struct MaterialInstance
 {
     MaterialPipeline* pipeline;
-    VkDescriptorSet materialSet;
-    MaterialPass passType;
+    VkDescriptorSet material_set;
+    MaterialPass pass_type;
 };
 
 struct Vertex
@@ -101,14 +103,13 @@ struct GPUDrawPushConstants
 
 struct DrawContext;
 
-// base class for a renderable dynamic object
+// Base class for a renderable dynamic object
 class IRenderable
 {
-
-    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx) = 0;
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
 };
 
-// implementation of a drawable scene node.
+// Implementation of a drawable scene node.
 // the scene node can hold children and will also keep a transform to propagate
 // to them
 struct Node : public IRenderable
@@ -118,24 +119,24 @@ struct Node : public IRenderable
     std::weak_ptr<Node> parent;
     std::vector<std::shared_ptr<Node>> children;
 
-    glm::mat4 localTransform;
-    glm::mat4 worldTransform;
+    glm::mat4 local_transform;
+    glm::mat4 world_transform;
 
-    void refreshTransform(const glm::mat4& parentMatrix)
+    void refresh_transform(const glm::mat4& parent_matrix)
     {
-        worldTransform = parentMatrix * localTransform;
+        world_transform = parent_matrix * local_transform;
         for (auto c : children)
         {
-            c->refreshTransform(worldTransform);
+            c->refresh_transform(world_transform);
         }
     }
 
-    virtual void Draw(const glm::mat4& topMatrix, DrawContext& ctx)
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx)
     {
         // draw children
         for (auto& c : children)
         {
-            c->Draw(topMatrix, ctx);
+            c->draw(top_matrix, ctx);
         }
     }
 };
