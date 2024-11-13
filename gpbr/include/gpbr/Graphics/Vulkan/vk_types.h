@@ -106,10 +106,10 @@ struct DrawContext;
 // Base class for a renderable dynamic object
 class IRenderable
 {
-    virtual void Draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
 };
 
-// implementation of a drawable scene node.
+// Implementation of a drawable scene node.
 // the scene node can hold children and will also keep a transform to propagate
 // to them
 struct Node : public IRenderable
@@ -122,21 +122,21 @@ struct Node : public IRenderable
     glm::mat4 local_transform;
     glm::mat4 world_transform;
 
-    void refreshTransform(const glm::mat4& parentMatrix)
+    void refresh_transform(const glm::mat4& parent_matrix)
     {
-        world_transform = parentMatrix * local_transform;
+        world_transform = parent_matrix * local_transform;
         for (auto c : children)
         {
-            c->refreshTransform(world_transform);
+            c->refresh_transform(world_transform);
         }
     }
 
-    virtual void Draw(const glm::mat4& top_matrix, DrawContext& ctx)
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx)
     {
         // draw children
         for (auto& c : children)
         {
-            c->Draw(top_matrix, ctx);
+            c->draw(top_matrix, ctx);
         }
     }
 };

@@ -58,8 +58,7 @@ struct ComputeEffect
 
     ComputePushConstants data;
 };
-// TODO: CONTINUE HERE https://vkguide.dev/docs/new_chapter_4/materials/
-/*
+
 // Contains glTF PBR parameters
 struct GLTFMetallic_Roughness
 {
@@ -95,7 +94,6 @@ struct GLTFMetallic_Roughness
                                     const MaterialResources& resources,
                                     DescriptorAllocatorGrowable& descriptor_allocator);
 };
-*/
 
 // Contains data for a single vkCmdDrawIndexed
 struct RenderObject
@@ -108,6 +106,18 @@ struct RenderObject
 
     glm::mat4 transform;
     VkDeviceAddress vertex_buffer_address;
+};
+
+struct DrawContext
+{
+    std::vector<RenderObject> opaque_surfaces;
+};
+
+struct MeshNode : public Node
+{
+    std::shared_ptr<MeshAsset> mesh;
+
+    virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 };
 
 class VulkanEngine
@@ -126,7 +136,7 @@ class VulkanEngine
     static VulkanEngine& get();
 
     VkInstance _instance;                      // Vulkan library handle
-    VkDebugUtilsMessengerEXT _debug_messenger; // debug output handle
+    VkDebugUtilsMessengerEXT _debug_messenger; // debugging output handle
     VkPhysicalDevice _chosen_GPU;              // selected GPU
     VkDevice _device;                          // device for commands
     VkSurfaceKHR _surface;                     // window surface
@@ -158,7 +168,7 @@ class VulkanEngine
     // 1 second delay between updates
     float _FPS_delay{1.0f};
 
-    DescriptorAllocator global_descriptor_allocator;
+    DescriptorAllocatorGrowable global_descriptor_allocator;
 
     VkPipeline _gradient_pipeline;
     VkPipelineLayout _gradient_pipeline_layout;
@@ -197,8 +207,18 @@ class VulkanEngine
     VkSampler _default_sampler_linear;  // linar filtering (blur)
     VkSampler _default_sampler_nearest; // nearest neighbor filtering
 
+    // draw resources
+
+    DrawContext _main_draw_context;
     GPUSceneData _scene_data;
+    MaterialInstance _default_data;
+
+    GLTFMetallic_Roughness _metal_rough_material;
+
+    std::unordered_map<std::string, std::shared_ptr<Node>> _loaded_nodes;
+
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
+    // VkDescriptorSetLayout _gltf_mat_descriptor_layout;
 
     std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
@@ -215,6 +235,8 @@ class VulkanEngine
     void draw_background(VkCommandBuffer cmd);
     void draw_geometry(VkCommandBuffer cmd);
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
+
+    void update_scene();
 
     // run main loop
     void run();
