@@ -119,6 +119,8 @@ class VulkanEngine
     VkDescriptorSet _draw_image_descriptors;
     VkDescriptorSetLayout _draw_image_descriptor_layout;
 
+    VkDescriptorSetLayout _single_image_descriptor_layout;
+
     DeletionQueue _main_deletion_queue;
 
     VmaAllocator _allocator;
@@ -135,6 +137,14 @@ class VulkanEngine
 
     AllocatedImage _draw_image;
     AllocatedImage _depth_image;
+
+    AllocatedImage _white_image;
+    AllocatedImage _black_image;
+    AllocatedImage _grey_image;
+    AllocatedImage _error_checkerboard_image;
+
+    VkSampler _default_sampler_linear;  // linar filtering (blur)
+    VkSampler _default_sampler_nearest; // nearest neighbor filtering
 
     GPUSceneData _scene_data;
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
@@ -165,16 +175,14 @@ class VulkanEngine
     AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
     void destroy_buffer(const AllocatedBuffer& buffer);
 
-    // TODO: CONTINUE HERE
-    /*
     AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-    AllocatedImage create_image(void* data, //
+    AllocatedImage create_image(void* data,
                                 VkExtent3D size,
                                 VkFormat format,
                                 VkImageUsageFlags usage,
                                 bool mipmapped = false);
     void destroy_image(const AllocatedImage& image);
-    */
+
   private:
     void init_vulkan();
 

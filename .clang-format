@@ -1,10 +1,12 @@
 BasedOnStyle: LLVM
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortFunctionsOnASingleLine: Inline
-BinPackArguments: False
-BinPackParameters: False
+BinPackArguments: false
+BinPackParameters: false
 BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: False
 ColumnLimit: 120
@@ -14,3 +16,6 @@ ReferenceAlignment: Left
 PointerAlignment: Left
 NamespaceIndentation: Inner
 SortIncludes: Never
+
+PenaltyReturnTypeOnItsOwnLine: 1000000
+#PenaltyBreakAssignment: 1000000
