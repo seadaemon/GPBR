@@ -49,9 +49,12 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
             },
             [&](fastgltf::sources::Vector& vector)
             {
-                stbi_uc buffer      = (stbi_uc)vector.bytes.data();
-                unsigned char* data = stbi_load_from_memory(
-                    &buffer, static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
+                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
+                                                            static_cast<int>(vector.bytes.size()),
+                                                            &width,
+                                                            &height,
+                                                            &nrChannels,
+                                                            4);
                 if (data)
                 {
                     VkExtent3D imagesize;
@@ -70,38 +73,35 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                 auto& bufferView = asset.bufferViews[view.bufferViewIndex];
                 auto& buffer     = asset.buffers[bufferView.bufferIndex];
 
-                std::visit(fastgltf::visitor{// We only care about VectorWithMime here, because we
-                                             // specify LoadExternalBuffers, meaning all buffers
-                                             // are already loaded into a vector.
-                                             [](auto& arg) {},
-                                             [&](fastgltf::sources::Vector& vector)
-                                             {
-                                                 stbi_uc buffer = (stbi_uc)vector.bytes.data();
+                std::visit(
+                    fastgltf::visitor{
+                        // We only care about VectorWithMime here, because we
+                        // specify LoadExternalBuffers, meaning all buffers
+                        // are already loaded into a vector.
+                        [](auto& arg) {},
+                        [&](fastgltf::sources::Vector& vector)
+                        {
+                            unsigned char* data = stbi_load_from_memory(
+                                reinterpret_cast<const unsigned char*>(vector.bytes.data()) + bufferView.byteOffset,
+                                static_cast<int>(bufferView.byteLength),
+                                &width,
+                                &height,
+                                &nrChannels,
+                                4);
+                            if (data)
+                            {
+                                VkExtent3D imagesize;
+                                imagesize.width  = width;
+                                imagesize.height = height;
+                                imagesize.depth  = 1;
 
-                                                 unsigned char* data =
-                                                     stbi_load_from_memory(&buffer + bufferView.byteOffset,
-                                                                           static_cast<int>(bufferView.byteLength),
-                                                                           &width,
-                                                                           &height,
-                                                                           &nrChannels,
-                                                                           4);
-                                                 if (data)
-                                                 {
-                                                     VkExtent3D imagesize;
-                                                     imagesize.width  = width;
-                                                     imagesize.height = height;
-                                                     imagesize.depth  = 1;
+                                newImage = engine->create_image(
+                                    data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
 
-                                                     newImage = engine->create_image(data,
-                                                                                     imagesize,
-                                                                                     VK_FORMAT_R8G8B8A8_UNORM,
-                                                                                     VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                                                     false);
-
-                                                     stbi_image_free(data);
-                                                 }
-                                             }},
-                           buffer.data);
+                                stbi_image_free(data);
+                            }
+                        }},
+                    buffer.data);
             },
         },
         image.data);
@@ -171,6 +171,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     // data.FromPath(file_path);
 
     auto data = fastgltf::GltfDataBuffer::FromPath(file_path);
+
     if (data.get_if() == nullptr)
     {
         fmt::println("Failed to load glTF: {}", file_path);
@@ -434,6 +435,17 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
                 new_surface.material = materials[0];
             }
 
+            glm::vec3 minpos = vertices[initial_vtx].position;
+            glm::vec3 maxpos = vertices[initial_vtx].position;
+            for (int i = initial_vtx; i < vertices.size(); i++)
+            {
+                minpos = glm::min(minpos, vertices[i].position);
+                maxpos = glm::max(maxpos, vertices[i].position);
+            }
+
+            new_surface.bounds.origin        = (maxpos + minpos) / 2.f;
+            new_surface.bounds.extents       = (maxpos - minpos) / 2.f;
+            new_surface.bounds.sphere_radius = glm::length(new_surface.bounds.extents);
             new_mesh->surfaces.push_back(new_surface);
         }
 
@@ -453,7 +465,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         }
         else
         {
-            new_node = std::make_shared<MeshNode>();
+            new_node = std::make_shared<Node>();
         }
 
         nodes.push_back(new_node);

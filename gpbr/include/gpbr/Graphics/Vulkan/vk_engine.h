@@ -104,7 +104,7 @@ struct RenderObject
     VkBuffer index_buffer;
 
     MaterialInstance* material;
-
+    Bounds bounds;
     glm::mat4 transform;
     VkDeviceAddress vertex_buffer_address;
 };
@@ -237,6 +237,7 @@ class VulkanEngine
     // draw loop
     void draw();
 
+    void draw_main(VkCommandBuffer cmd);
     void draw_background(VkCommandBuffer cmd);
     void draw_geometry(VkCommandBuffer cmd);
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);

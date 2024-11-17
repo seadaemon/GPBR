@@ -88,8 +88,10 @@ void VulkanEngine::init()
     _main_camera.yaw      = 0.f;
 
     //*
-    std::string structure_path = {".\\Assets\\structure_mat.glb"};
-    auto structure_file        = load_gltf(this, structure_path);
+    std::string structure_path = {".\\Assets\\structure.glb"};
+    // std::string structure_path = {
+    //     "C:\\Users\\nino\\source\\repos\\GPBR\\out\\build\\x64-debug\\gpbr\\Assets\\structure.glb"};
+    auto structure_file = load_gltf(this, structure_path);
     assert(structure_file.has_value());
     _loaded_scenes["debug"] = *structure_file;
 
@@ -269,6 +271,45 @@ void VulkanEngine::cleanup()
     loaded_engine = nullptr;
 }
 
+void VulkanEngine::draw_main(VkCommandBuffer cmd)
+{
+    ComputeEffect& effect = background_effects[current_background_effect];
+
+    // bind the background compute pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, effect.pipeline);
+
+    // bind the descriptor set containing the draw image for the compute pipeline
+    vkCmdBindDescriptorSets(
+        cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradient_pipeline_layout, 0, 1, &_draw_image_descriptors, 0, nullptr);
+
+    vkCmdPushConstants(
+        cmd, _gradient_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &effect.data);
+    // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
+    vkCmdDispatch(cmd, std::ceil(_window_extent.width / 16.0), std::ceil(_window_extent.height / 16.0), 1);
+
+    // draw the triangle
+
+    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkRenderingAttachmentInfo colorAttachment =
+        vkinit::attachment_info(_draw_image.image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment =
+        vkinit::depth_attachment_info(_depth_image.image_view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_window_extent, &colorAttachment, &depthAttachment);
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+    // auto start = std::chrono::system_clock::now();
+    draw_geometry(cmd);
+
+    // auto end     = std::chrono::system_clock::now();
+    // auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    // stats.mesh_draw_time = elapsed.count() / 1000.f;
+
+    vkCmdEndRendering(cmd);
+}
+
 void VulkanEngine::draw_background(VkCommandBuffer cmd)
 {
     ComputeEffect& effect = background_effects[current_background_effect];
@@ -286,92 +327,190 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
 
+bool is_visible(const RenderObject& obj, const glm::mat4& viewproj)
+{
+    std::array<glm::vec3, 8> corners{
+        glm::vec3{ 1,  1,  1},
+        glm::vec3{ 1,  1, -1},
+        glm::vec3{ 1, -1,  1},
+        glm::vec3{ 1, -1, -1},
+        glm::vec3{-1,  1,  1},
+        glm::vec3{-1,  1, -1},
+        glm::vec3{-1, -1,  1},
+        glm::vec3{-1, -1, -1},
+    };
+
+    glm::mat4 matrix = viewproj * obj.transform;
+
+    glm::vec3 min = {1.5, 1.5, 1.5};
+    glm::vec3 max = {-1.5, -1.5, -1.5};
+
+    for (int c = 0; c < 8; c++)
+    {
+        // project each corner into clip space
+        glm::vec4 v = matrix * glm::vec4(obj.bounds.origin + (corners[c] * obj.bounds.extents), 1.f);
+
+        // perspective correction
+        v.x = v.x / v.w;
+        v.y = v.y / v.w;
+        v.z = v.z / v.w;
+
+        min = glm::min(glm::vec3{v.x, v.y, v.z}, min);
+        max = glm::max(glm::vec3{v.x, v.y, v.z}, max);
+    }
+
+    // check the clip space box is within the view
+    if (min.z > 1.f || max.z < 0.f || min.x > 1.f || max.x < -1.f || min.y > 1.f || max.y < -1.f)
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
-    // begin a render pass  connected to draw_image
-    VkRenderingAttachmentInfo color_attachment =
-        vkinit::attachment_info(_draw_image.image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depth_attachment =
-        vkinit::depth_attachment_info(_depth_image.image_view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    std::vector<uint32_t> opaque_draws;
+    opaque_draws.reserve(_main_draw_context.opaque_surfaces.size());
 
-    VkRenderingInfo render_info = vkinit::rendering_info(_draw_extent, &color_attachment, &depth_attachment);
-    vkCmdBeginRendering(cmd, &render_info);
+    for (int i = 0; i < _main_draw_context.opaque_surfaces.size(); i++)
+    {
+        /*
+        if (is_visible(_main_draw_context.opaque_surfaces[i], _scene_data.view_proj))
+        {
+            opaque_draws.push_back(i);
+        }
+        */
+        opaque_draws.push_back(i);
+    }
 
-    // set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x          = 0;
-    viewport.y          = 0;
-    viewport.width      = _draw_extent.width;
-    viewport.height     = _draw_extent.height;
-    viewport.minDepth   = 0.f;
-    viewport.maxDepth   = 1.f;
+    // sort the opaque surfaces by material and mesh
+    std::sort(opaque_draws.begin(),
+              opaque_draws.end(),
+              [&](const auto& iA, const auto& iB)
+              {
+                  const RenderObject& A = _main_draw_context.opaque_surfaces[iA];
+                  const RenderObject& B = _main_draw_context.opaque_surfaces[iB];
+                  if (A.material == B.material)
+                  {
+                      return A.index_buffer < B.index_buffer;
+                  }
+                  else
+                  {
+                      return A.material < B.material;
+                  }
+              });
 
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor      = {};
-    scissor.offset.x      = 0;
-    scissor.offset.y      = 0;
-    scissor.extent.width  = viewport.width;
-    scissor.extent.height = viewport.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    // allocate a new uniform buffer for scene data
-    AllocatedBuffer gpu_scene_data_buffer =
+    // allocate a new uniform buffer for the scene data
+    AllocatedBuffer gpuSceneDataBuffer =
         create_buffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    // ensure deletion after use
-    get_current_frame()._deletion_queue.push_function([=, this]() { destroy_buffer(gpu_scene_data_buffer); });
+    // add it to the deletion queue of this frame so it gets deleted once its been used
+    get_current_frame()._deletion_queue.push_function([=, this]() { destroy_buffer(gpuSceneDataBuffer); });
 
-    // write to the buffer
-    GPUSceneData* scene_uniform_data = (GPUSceneData*)gpu_scene_data_buffer.allocation->GetMappedData();
-    *scene_uniform_data              = _scene_data;
+    // write the buffer
+    GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
+    *sceneUniformData              = _scene_data;
 
-    // create descriptor set to bind buffer & update it
-    VkDescriptorSet global_descriptor =
+    // create a descriptor set that binds that buffer and update it
+    VkDescriptorSet globalDescriptor =
         get_current_frame()._frame_descriptors.allocate(_device, _gpu_scene_data_descriptor_layout);
 
     DescriptorWriter writer;
-    writer.write_buffer(0, gpu_scene_data_buffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    writer.update_set(_device, global_descriptor);
+    writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    writer.update_set(_device, globalDescriptor);
 
-    for (const RenderObject& draw : _main_draw_context.opaque_surfaces)
+    MaterialPipeline* lastPipeline = nullptr;
+    MaterialInstance* lastMaterial = nullptr;
+    VkBuffer lastIndexBuffer       = VK_NULL_HANDLE;
+
+    auto draw = [&](const RenderObject& r)
     {
+        if (r.material != lastMaterial)
+        {
+            lastMaterial = r.material;
+            if (r.material->pipeline != lastPipeline)
+            {
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, draw.material->pipeline->pipeline);
-        vkCmdBindDescriptorSets(cmd,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                draw.material->pipeline->layout,
-                                0,
-                                1,
-                                &global_descriptor,
-                                0,
-                                nullptr);
-        vkCmdBindDescriptorSets(cmd,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                draw.material->pipeline->layout,
-                                1,
-                                1,
-                                &draw.material->material_set,
-                                0,
-                                nullptr);
+                lastPipeline = r.material->pipeline;
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->pipeline);
+                vkCmdBindDescriptorSets(cmd,
+                                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                        r.material->pipeline->layout,
+                                        0,
+                                        1,
+                                        &globalDescriptor,
+                                        0,
+                                        nullptr);
 
-        vkCmdBindIndexBuffer(cmd, draw.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+                VkViewport viewport = {};
+                viewport.x          = 0;
+                viewport.y          = 0;
+                viewport.width      = (float)_window_extent.width;
+                viewport.height     = (float)_window_extent.height;
+                viewport.minDepth   = 0.f;
+                viewport.maxDepth   = 1.f;
 
-        GPUDrawPushConstants pushConstants;
-        pushConstants.vertex_buffer = draw.vertex_buffer_address;
-        pushConstants.world_matrix  = draw.transform;
+                vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+                VkRect2D scissor      = {};
+                scissor.offset.x      = 0;
+                scissor.offset.y      = 0;
+                scissor.extent.width  = _window_extent.width;
+                scissor.extent.height = _window_extent.height;
+
+                vkCmdSetScissor(cmd, 0, 1, &scissor);
+            }
+
+            vkCmdBindDescriptorSets(cmd,
+                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                    r.material->pipeline->layout,
+                                    1,
+                                    1,
+                                    &r.material->material_set,
+                                    0,
+                                    nullptr);
+        }
+        if (r.index_buffer != lastIndexBuffer)
+        {
+            lastIndexBuffer = r.index_buffer;
+            vkCmdBindIndexBuffer(cmd, r.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        }
+        // calculate final mesh matrix
+        GPUDrawPushConstants push_constants;
+        push_constants.world_matrix  = r.transform;
+        push_constants.vertex_buffer = r.vertex_buffer_address;
+
         vkCmdPushConstants(cmd,
-                           draw.material->pipeline->layout,
+                           r.material->pipeline->layout,
                            VK_SHADER_STAGE_VERTEX_BIT,
                            0,
                            sizeof(GPUDrawPushConstants),
-                           &pushConstants);
+                           &push_constants);
 
-        vkCmdDrawIndexed(cmd, draw.index_count, 1, draw.first_index, 0, 0);
+        // stats.drawcall_count++;
+        // stats.triangle_count += r.indexCount / 3;
+        vkCmdDrawIndexed(cmd, r.index_count, 1, r.first_index, 0, 0);
+    };
+
+    // stats.drawcall_count = 0;
+    // stats.triangle_count = 0;
+
+    for (auto& r : opaque_draws)
+    {
+        draw(_main_draw_context.opaque_surfaces[r]);
     }
 
-    vkCmdEndRendering(cmd);
+    for (auto& r : _main_draw_context.transparent_surfaces)
+    {
+        draw(r);
+    }
+
+    // we delete the draw commands now that we processed them
+    _main_draw_context.opaque_surfaces.clear();
+    _main_draw_context.transparent_surfaces.clear();
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
@@ -430,8 +569,6 @@ void VulkanEngine::update_scene()
 
 void VulkanEngine::draw()
 {
-    update_scene();
-
     // wait until the gpu has finished rendering the last frame. Timeout of 1 second
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._render_fence, true, 1000000000));
 
@@ -480,25 +617,26 @@ void VulkanEngine::draw()
 
     // transition the main draw image into general layout so it can be written to
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
-    draw_background(cmd);
-
-    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vkutil::transition_image(
         cmd, _depth_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    draw_geometry(cmd);
+    // TODO: CONTINUE HERE
+    // https://github.com/vblanco20-1/vulkan-guide/blob/dcf72a8b3cf93e27b917639a012be1b4b24b5e7d/chapter-5/vk_engine.cpp#L345
+    draw_main(cmd);
 
-    // transition the draw image and the swapchain image into their correct transfer layouts
     vkutil::transition_image(
         cmd, _draw_image.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkutil::transition_image(
         cmd, _swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    // copy from draw image into the swapchain
+    VkExtent2D extent;
+    extent.height = _window_extent.height;
+    extent.width  = _window_extent.width;
+
+    // execute a copy from the draw image into the swapchain
     vkutil::copy_image_to_image(
         cmd, _draw_image.image, _swapchain_images[swapchain_image_index], _draw_extent, _swapchain_extent);
 
-    // set swapchain image layout to Attachment Optimal for drawing
+    // set swapchain image layout to Attachment Optimal so we can draw it
     vkutil::transition_image(cmd,
                              _swapchain_images[swapchain_image_index],
                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -675,6 +813,8 @@ void VulkanEngine::run()
         ImGui::End();
         // make imgui calculate internal draw structures
         ImGui::Render();
+
+        update_scene();
 
         draw();
 
@@ -1591,25 +1731,27 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device,
 
 void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
 {
-    if (mesh.get() == nullptr)
-    {
-        return;
-    }
-
     glm::mat4 node_matrix = top_matrix * world_transform;
 
     for (auto& s : mesh->surfaces)
     {
         RenderObject def;
-        def.index_count  = s.count;
-        def.first_index  = s.start_index;
-        def.index_buffer = mesh->mesh_buffers.index_buffer.buffer;
-        def.material     = &s.material->data;
-
+        def.index_count           = s.count;
+        def.first_index           = s.start_index;
+        def.index_buffer          = mesh->mesh_buffers.index_buffer.buffer;
+        def.material              = &s.material->data;
+        def.bounds                = s.bounds;
         def.transform             = node_matrix;
         def.vertex_buffer_address = mesh->mesh_buffers.vertex_buffer_address;
 
-        ctx.opaque_surfaces.push_back(def);
+        if (s.material->data.pass_type == MaterialPass::Transparent)
+        {
+            ctx.transparent_surfaces.push_back(def);
+        }
+        else
+        {
+            ctx.opaque_surfaces.push_back(def);
+        }
     }
 
     // recurse down

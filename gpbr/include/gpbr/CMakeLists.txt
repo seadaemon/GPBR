@@ -24,6 +24,8 @@ target_link_libraries(gpbr PUBLIC
     imgui::imgui
     fastgltf::fastgltf
 	fmt::fmt
+
+    stb::image
 )
 target_compile_definitions(gpbr
   PUBLIC
