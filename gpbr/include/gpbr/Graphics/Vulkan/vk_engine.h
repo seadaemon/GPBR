@@ -112,6 +112,7 @@ struct RenderObject
 struct DrawContext
 {
     std::vector<RenderObject> opaque_surfaces;
+    std::vector<RenderObject> transparent_surfaces;
 };
 
 struct MeshNode : public Node
@@ -216,6 +217,7 @@ class VulkanEngine
 
     GLTFMetallic_Roughness _metal_rough_material;
 
+    std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> _loaded_scenes;
     std::unordered_map<std::string, std::shared_ptr<Node>> _loaded_nodes;
 
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;

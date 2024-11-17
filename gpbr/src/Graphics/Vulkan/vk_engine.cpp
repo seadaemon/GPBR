@@ -83,9 +83,21 @@ void VulkanEngine::init()
     _is_initialized = true;
 
     _main_camera.velocity = glm::vec3(0.f);
-    _main_camera.position = glm::vec3(0, 0, 5);
+    _main_camera.position = glm::vec3(0.f, 0.f, 5.f); // glm::vec3(30.f, -00.f, -085.f);
     _main_camera.pitch    = 0.f;
     _main_camera.yaw      = 0.f;
+
+    //*
+    std::string structure_path = {".\\Assets\\structure_mat.glb"};
+    auto structure_file        = load_gltf(this, structure_path);
+    assert(structure_file.has_value());
+    _loaded_scenes["debug"] = *structure_file;
+
+    for (auto x : _loaded_scenes["debug"].get()->meshes)
+    {
+        fmt::println("{}", x.second.get()->name);
+    }
+    //*/
 }
 
 void VulkanEngine::init_default_data()
@@ -218,6 +230,8 @@ void VulkanEngine::cleanup()
     if (_is_initialized)
     {
         vkDeviceWaitIdle(_device);
+
+        _loaded_scenes.clear();
 
         for (int i = 0; i < FRAME_OVERLAP; i++)
         {
@@ -393,7 +407,9 @@ void VulkanEngine::update_scene()
 
     _main_draw_context.opaque_surfaces.clear();
 
-    _loaded_nodes["Suzanne"]->draw(glm::mat4{1.f}, _main_draw_context);
+    //_loaded_nodes["Suzanne"]->draw(glm::mat4{1.f}, _main_draw_context);
+
+    _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
 
     //_scene_data.view = glm::translate(glm::vec3{0, 0, -5});
 
@@ -1570,8 +1586,16 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device,
     return mat_data;
 }
 
+// HACK: Returns early if mesh is a nullptr
+// FIXME: The guide does NOT do this, find another way to fix this later.
+
 void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
 {
+    if (mesh.get() == nullptr)
+    {
+        return;
+    }
+
     glm::mat4 node_matrix = top_matrix * world_transform;
 
     for (auto& s : mesh->surfaces)
