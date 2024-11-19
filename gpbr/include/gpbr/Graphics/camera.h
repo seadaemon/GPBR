@@ -5,6 +5,7 @@
 class Camera
 {
   public:
+    float max_velocity{0.5f};
     glm::vec3 velocity;
     glm::vec3 position;
 

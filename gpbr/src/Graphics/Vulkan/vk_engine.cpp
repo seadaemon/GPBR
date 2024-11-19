@@ -24,6 +24,26 @@
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+/*
+#ifndef VMA_DEBUG_LOG_FORMAT
+#define VMA_DEBUG_LOG_FORMAT(format, ...)                                                                              \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        printf((format), __VA_ARGS__);                                                                                 \
+        printf("\n");                                                                                                  \
+    } while (false)
+#endif
+
+#ifndef VMA_DEBUG_LOG
+#ifndef VMA_ENABLE_DEBUG_LOG
+/// VMA debug log disabled
+#define VMA_DEBUG_LOG(str)
+#else
+/// VMA debug log enabled
+#define VMA_DEBUG_LOG(str) VMA_DEBUG_LOG_FORMAT("%s", (str))
+#endif
+#endif
+*/
 #include "vma/vk_mem_alloc.h"
 #include <gpbr/Graphics/Vulkan/vk_images.h>
 #include <gpbr/Graphics/Vulkan/vk_pipelines.h>
@@ -40,27 +60,26 @@ VulkanEngine& VulkanEngine::get()
 
 void VulkanEngine::init()
 {
-    // the application must only have one engine
+    /* 1 Ensure this is the only engine running */
     assert(loaded_engine == nullptr);
     loaded_engine = this;
 
-    // initialize SDL & create a window
+    /* 2 Initialize SDL */
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
-        // TODO add error handling here
         fmt::println("Could not initialize SDL: {}", SDL_GetError());
-        return;
+        return; // TODO: Improve error handling here...
     }
+
+    /* 2.1 Create the SDL window */
 
     _window_title = "GPBR";
 
-    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_RESIZABLE);
 
-    _window = SDL_CreateWindow(_window_title.c_str(), //
-                               _window_extent.width,  //
-                               _window_extent.height, //
-                               window_flags           //
-    );
+    _window = SDL_CreateWindow(_window_title.c_str(), _window_extent.width, _window_extent.height, window_flags);
+
+    /* 3 Process each initialization method */
 
     init_vulkan();
 
@@ -82,24 +101,32 @@ void VulkanEngine::init()
 
     _is_initialized = true;
 
+    /* 4 Initialize the camera */
+
     _main_camera.velocity = glm::vec3(0.f);
-    _main_camera.position = glm::vec3(0.f, 0.f, 5.f); // glm::vec3(30.f, -00.f, -085.f);
+    _main_camera.position = glm::vec3(0.f, 1.76f, 0.f);
     _main_camera.pitch    = 0.f;
     _main_camera.yaw      = 0.f;
 
-    //*
-    std::string structure_path = {".\\Assets\\structure.glb"};
-    // std::string structure_path = {
-    //     "C:\\Users\\nino\\source\\repos\\GPBR\\out\\build\\x64-debug\\gpbr\\Assets\\structure.glb"};
-    auto structure_file = load_gltf(this, structure_path);
-    assert(structure_file.has_value());
-    _loaded_scenes["debug"] = *structure_file;
+    /* 5 Load a scene for debugging */
 
-    for (auto x : _loaded_scenes["debug"].get()->meshes)
-    {
-        fmt::println("{}", x.second.get()->name);
-    }
-    //*/
+    std::string prefix{".\\Assets\\"};
+
+    std::unordered_map<std::string, std::string> glTF_map{
+        {"AlphaBlendModeTest", prefix + "AlphaBlendModeTest.glb"},
+        {               "Cow",                prefix + "Cow.glb"},
+        {              "Duck",               prefix + "Duck.glb"},
+        {            "Dragon",  prefix + "DragonAttenuation.glb"},
+        {            "Sponza",             prefix + "sponza.glb"},
+        {         "Structure",          prefix + "structure.glb"},
+        {     "Structure Mat",      prefix + "structure_mat.glb"}
+    };
+
+    std::string gltf_path{glTF_map["Sponza"]};
+    auto gltf_file = load_gltf(this, gltf_path);
+    assert(gltf_file.has_value());
+
+    _loaded_scenes["debug"] = *gltf_file;
 }
 
 void VulkanEngine::init_default_data()
@@ -235,16 +262,11 @@ void VulkanEngine::cleanup()
 
         _loaded_scenes.clear();
 
-        for (int i = 0; i < FRAME_OVERLAP; i++)
+        _metal_rough_material.clear_resources(_device);
+
+        for (auto& frame : _frames)
         {
-            vkDestroyCommandPool(_device, _frames[i]._command_pool, nullptr);
-
-            // destroy sync objects
-            vkDestroyFence(_device, _frames[i]._render_fence, nullptr);
-            vkDestroySemaphore(_device, _frames[i]._render_semaphore, nullptr);
-            vkDestroySemaphore(_device, _frames[i]._swapchain_semaphore, nullptr);
-
-            _frames[i]._deletion_queue.flush();
+            frame._deletion_queue.flush();
         }
 
         for (auto& mesh : test_meshes)
@@ -253,13 +275,13 @@ void VulkanEngine::cleanup()
             destroy_buffer(mesh->mesh_buffers.vertex_buffer);
         }
 
-        _metal_rough_material.clear_resources(_device);
-
         _main_deletion_queue.flush();
 
         destroy_swapchain();
 
         vkDestroySurfaceKHR(_instance, _surface, nullptr);
+
+        vmaDestroyAllocator(_allocator);
 
         vkDestroyDevice(_device, nullptr);
         vkb::destroy_debug_utils_messenger(_instance, _debug_messenger, nullptr);
@@ -299,13 +321,15 @@ void VulkanEngine::draw_main(VkCommandBuffer cmd)
     VkRenderingInfo renderInfo = vkinit::rendering_info(_window_extent, &colorAttachment, &depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    // auto start = std::chrono::system_clock::now();
+
+    auto start = std::chrono::system_clock::now();
+
     draw_geometry(cmd);
 
-    // auto end     = std::chrono::system_clock::now();
-    // auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto end     = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-    // stats.mesh_draw_time = elapsed.count() / 1000.f;
+    stats.mesh_draw_time = elapsed.count() / 1000.f;
 
     vkCmdEndRendering(cmd);
 }
@@ -490,13 +514,13 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
                            sizeof(GPUDrawPushConstants),
                            &push_constants);
 
-        // stats.drawcall_count++;
-        // stats.triangle_count += r.indexCount / 3;
+        stats.drawcall_count++;
+        stats.triangle_count += r.index_count / 3;
         vkCmdDrawIndexed(cmd, r.index_count, 1, r.first_index, 0, 0);
     };
 
-    // stats.drawcall_count = 0;
-    // stats.triangle_count = 0;
+    stats.drawcall_count = 0;
+    stats.triangle_count = 0;
 
     for (auto& r : opaque_draws)
     {
@@ -562,7 +586,7 @@ void VulkanEngine::update_scene()
     //_scene_data.view_proj = _scene_data.proj * _scene_data.view;
 
     // parameters for a directional light
-    _scene_data.ambient_color      = glm::vec4(.1f);
+    _scene_data.ambient_color      = glm::vec4(.5f);
     _scene_data.sunlight_color     = glm::vec4(1.f);
     _scene_data.sunlight_direction = glm::vec4(0, 1, 0.5, 1.f);
 }
@@ -612,8 +636,8 @@ void VulkanEngine::draw()
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
 
     // reset and start a new timestamp
-    vkCmdResetQueryPool(cmd, _query_pool_time_stamps, 0, static_cast<uint32_t>(_time_stamps.size()));
-    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, _query_pool_time_stamps, 0);
+    vkCmdResetQueryPool(cmd, _query_pool_timestamps, 0, static_cast<uint32_t>(_timestamps.size()));
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, _query_pool_timestamps, 0);
 
     // transition the main draw image into general layout so it can be written to
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -651,7 +675,7 @@ void VulkanEngine::draw()
                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, _query_pool_time_stamps, 1);
+    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, _query_pool_timestamps, 1);
 
     // finalize the command buffer (we can no longer add commands, but it can now be executed)
     VK_CHECK(vkEndCommandBuffer(cmd));
@@ -676,14 +700,14 @@ void VulkanEngine::draw()
     VK_CHECK(vkQueueSubmit2(_graphics_queue, 1, &submit, get_current_frame()._render_fence));
 
     // get time stamp results
-    uint32_t count = _time_stamps.size();
+    uint32_t count = _timestamps.size();
 
     vkGetQueryPoolResults(_device, //
-                          _query_pool_time_stamps,
+                          _query_pool_timestamps,
                           0,
                           count,
-                          _time_stamps.size() * sizeof(uint64_t),
-                          _time_stamps.data(),
+                          _timestamps.size() * sizeof(uint64_t),
+                          _timestamps.data(),
                           sizeof(uint64_t),
                           VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
@@ -716,9 +740,9 @@ void VulkanEngine::draw()
 
 void VulkanEngine::run()
 {
-    // Fixed timestep
-    const float FPS = 60.0f;
-    const float dt  = 1.0f / FPS; // ~= 16.6ms
+    // TODO: implement fixed timestep
+    // const float FPS = 60.0f;
+    // const float dt  = 1.0f / FPS; // ~= 16.6ms
 
     auto previous_time = std::chrono::high_resolution_clock::now();
 
@@ -727,17 +751,8 @@ void VulkanEngine::run()
     // main loop
     while (!quit)
     {
-        const auto new_time = std::chrono::high_resolution_clock::now();
-        _frame_time         = std::chrono::duration<float>(new_time - previous_time).count();
-        previous_time       = new_time;
 
-        float new_FPS = 1.0f / _frame_time;
-        if (new_FPS == std::numeric_limits<float>::infinity())
-        {
-            // in case of _frame_time == 0
-            new_FPS = 0;
-        }
-        _avg_FPS = std::lerp(_avg_FPS, new_FPS, 0.1f);
+        auto start = std::chrono::system_clock::now();
 
         // Poll until all events are handled
         while (SDL_PollEvent(&e))
@@ -787,13 +802,19 @@ void VulkanEngine::run()
 
         if (_resize_requested)
         {
-            fmt::println("RESIZING THE SWAPCHAIN");
             resize_swapchain();
         }
         // Create a new ImGui frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
+
+        ImGui::Begin("Stats");
+        ImGui::Text("frametime %f ms", stats.frame_time);
+        ImGui::Text("drawtime %f ms", stats.mesh_draw_time);
+        ImGui::Text("triangles %i", stats.triangle_count);
+        ImGui::Text("drawws %i", stats.drawcall_count);
+        ImGui::End();
 
         if (ImGui::Begin("background"))
         {
@@ -818,29 +839,20 @@ void VulkanEngine::run()
 
         draw();
 
-        // update window to show FPS
+        auto end     = std::chrono::system_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-        if (_FPS_delay > 0.0f)
-        {
-            _FPS_delay -= dt;
-        }
-        else
-        {
-            _FPS_delay = 1.0f;
-            SDL_SetWindowTitle(
-                _window,
-                fmt::format("{} | FPS {:d} | Frame Time {:.3f}s", _window_title, int(_avg_FPS), _frame_time).c_str());
-        }
+        stats.frame_time = elapsed.count() / 1000.f;
     }
 }
 
 void VulkanEngine::init_vulkan()
 {
-    //==> INIT INSTANCE
+    /* 1 Create handles to the Vulkan library and the debug messenger */
+
     vkb::InstanceBuilder builder;
 
-    // vulkan instance w/ debug features
-    auto inst_ret = builder.set_app_name("Example Vulkan Application")
+    auto inst_ret = builder.set_app_name("GPBR")
                         .request_validation_layers(use_validation_layers) //
                         .use_default_debug_messenger()                    //
                         .require_api_version(1, 3, 0)                     //
@@ -849,32 +861,36 @@ void VulkanEngine::init_vulkan()
     vkb::Instance vkb_inst = inst_ret.value();
     _instance              = vkb_inst.instance;
     _debug_messenger       = vkb_inst.debug_messenger;
-    //<== INIT INSTANCE
 
-    //==> INIT DEVICE
+    /* 2 Create a Vulkan rendering surface */
+
     SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
 
-    // vulkan 1.3 features
+    /* 3 Specify features and extensions required of the physical device  */
+
+    // Vulkan 1.3 features
     VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     features13.dynamicRendering = true;
     features13.synchronization2 = true;
     features13.maintenance4     = true;
 
-    // vulkan 1.2 features
+    // Vulkan 1.2 features
     VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.bufferDeviceAddress = true;
     features12.descriptorIndexing  = true;
     features12.hostQueryReset      = true;
 
+    // Vulkan 1.0 features
     VkPhysicalDeviceFeatures features{};
     features.fillModeNonSolid = true;
 
-    // select a gpu
     vkb::PhysicalDeviceSelector selector{vkb_inst};
 
     selector.add_required_extension("VK_KHR_dynamic_rendering");
 
     selector.add_required_extension("VK_EXT_extended_dynamic_state");
+
+    /* 3.1 Create handles for a physical device and a logical device */
 
     vkb::PhysicalDevice physical_device = selector                                  //
                                               .set_minimum_version(1, 3)            //
@@ -885,30 +901,29 @@ void VulkanEngine::init_vulkan()
                                               .select()                             //
                                               .value();
 
-    // create the vulkan device
     vkb::DeviceBuilder device_builder{physical_device};
 
     vkb::Device vkb_device = device_builder.build().value();
 
-    // get device handle;
     _device     = vkb_device.device;
     _chosen_GPU = physical_device.physical_device;
 
     fmt::println("{}\n", physical_device.name);
-    //<== INIT DEVICE
 
-    //==> INIT VOLK
-    // load vulkan function entrypoints using VOLK
+    /* 4 Use Volk to dynamically load function entrypoints */
+
     volkInitialize();
     volkLoadInstance(_instance);
     volkLoadDevice(_device);
-    //<== INIT VOLK
 
-    // get a graphics queue using vkbootstrap
+    /* 5 Obtain a graphics queue and its corresponding family */
+
     _graphics_queue        = vkb_device.get_queue(vkb::QueueType::graphics).value();
     _graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
 
-    // gather Vulkan functions for VMA
+    /* 6 Bind Vulkan functions for VMA */
+
+    // TODO: Find a more elegant solution
     VmaVulkanFunctions vma_funcs                      = {};
     vma_funcs.vkGetInstanceProcAddr                   = vkGetInstanceProcAddr;
     vma_funcs.vkGetDeviceProcAddr                     = vkGetDeviceProcAddr;
@@ -937,7 +952,8 @@ void VulkanEngine::init_vulkan()
     vma_funcs.vkGetDeviceBufferMemoryRequirements     = vkGetDeviceBufferMemoryRequirements;
     vma_funcs.vkGetDeviceImageMemoryRequirements      = vkGetDeviceImageMemoryRequirements;
 
-    // initialize the memory allocator
+    /* 6.1 Initialize VMA */
+
     VmaAllocatorCreateInfo allocator_info = {};
     allocator_info.pVulkanFunctions       = &vma_funcs;
     allocator_info.physicalDevice         = _chosen_GPU;
@@ -946,7 +962,7 @@ void VulkanEngine::init_vulkan()
     allocator_info.flags                  = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     vmaCreateAllocator(&allocator_info, &_allocator);
 
-    _main_deletion_queue.push_function([&]() { vmaDestroyAllocator(_allocator); });
+    // Destructory for _allocator is explicitly called in cleanup()
 }
 
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
@@ -974,18 +990,22 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 
 void VulkanEngine::init_swapchain()
 {
+    /* 1 Create a new swapchain */
+
     create_swapchain(_window_extent.width, _window_extent.height);
 
-    // TODO: make this detect the current monitor resolution
+    /* 2 Set extent and format of the _draw_image */
+
     VkExtent3D draw_image_extent = {
         2560, //
         1600, //
         1     //
-    };
+    };        // TODO: make this detect the current monitor resolution
 
-    // hardcode the draw format to a 32 bit signed float
-    _draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    _draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT; // hardcoded to 32 bit signed float
     _draw_image.image_extent = draw_image_extent;
+
+    /* 2.1 Define usage flags for the _draw_image */
 
     VkImageUsageFlags draw_image_usages{};
     draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -993,25 +1013,30 @@ void VulkanEngine::init_swapchain()
     draw_image_usages |= VK_IMAGE_USAGE_STORAGE_BIT;
     draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    VkImageCreateInfo rimg_info =
+    /* 2.2 Define creation structs for _draw_image */
+
+    VkImageCreateInfo draw_image_info =
         vkinit::image_create_info(_draw_image.image_format, draw_image_usages, draw_image_extent);
 
-    // for the draw image, we want to allocate it from gpu local memory
-    VmaAllocationCreateInfo rimg_allocinfo = {};
-    rimg_allocinfo.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-    rimg_allocinfo.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    // Allocate it from gpu local memory
+    VmaAllocationCreateInfo draw_image_alloc_info = {};
+    draw_image_alloc_info.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
+    draw_image_alloc_info.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    // allocate and create the image | 'r' prefix stands for "render"
-    vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_draw_image.image, &_draw_image.allocation, nullptr);
+    /* 2.3 Initialize _draw_image */
 
-    // build a image-view for the draw image to use for rendering
+    vmaCreateImage(
+        _allocator, &draw_image_info, &draw_image_alloc_info, &_draw_image.image, &_draw_image.allocation, nullptr);
+
+    /* 2.4 Build an image-view from the _draw_image */
+
     VkImageViewCreateInfo rview_info =
         vkinit::imageview_create_info(_draw_image.image_format, _draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT);
 
     VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_draw_image.image_view));
-    //<== END INIT DRAW_IMAGE
 
-    //==> INIT DEPTH_IMAGE
+    /* 3 Initialize the _depth_image */
+
     _depth_image.image_format = VK_FORMAT_D32_SFLOAT;
     _depth_image.image_extent = draw_image_extent;
     VkImageUsageFlags depth_image_usages{};
@@ -1021,14 +1046,16 @@ void VulkanEngine::init_swapchain()
         vkinit::image_create_info(_depth_image.image_format, depth_image_usages, draw_image_extent);
 
     // allocate and create the image
-    vmaCreateImage(_allocator, &dimg_info, &rimg_allocinfo, &_depth_image.image, &_depth_image.allocation, nullptr);
+    vmaCreateImage(
+        _allocator, &dimg_info, &draw_image_alloc_info, &_depth_image.image, &_depth_image.allocation, nullptr);
 
     // build a image-view for the draw image to use for rendering
     VkImageViewCreateInfo dview_info =
         vkinit::imageview_create_info(_depth_image.image_format, _depth_image.image, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depth_image.image_view));
-    //<== END INIT DEPTH_IMAGE
+
+    /* 4 Queue deletion functions for the draw image and depth image */
 
     _main_deletion_queue.push_function(
         [=]()
@@ -1043,19 +1070,23 @@ void VulkanEngine::init_swapchain()
 
 void VulkanEngine::init_commands()
 {
-    // create a command pool for commands submitted to the graphics queue.
-    // we also want the pool to allow for resetting of individual command buffers
+    /* 1 Specify the info struct to create command pools */
+
+    // allow for resetting of individual command buffers
     VkCommandPoolCreateInfo command_pool_info =
         vkinit::command_pool_create_info(_graphics_queue_family, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+    /* 2 Create command pools and command buffers for each frame */
 
     for (int i = 0; i < FRAME_OVERLAP; i++)
     {
         VK_CHECK(vkCreateCommandPool(_device, &command_pool_info, nullptr, &_frames[i]._command_pool));
 
-        // allocate the default command buffer that we will use for rendering
         VkCommandBufferAllocateInfo cmd_alloc_info = vkinit::command_buffer_allocate_info(_frames[i]._command_pool, 1);
 
         VK_CHECK(vkAllocateCommandBuffers(_device, &cmd_alloc_info, &_frames[i]._main_command_buffer));
+
+        _main_deletion_queue.push_function([=]() { vkDestroyCommandPool(_device, _frames[i]._command_pool, nullptr); });
     }
 
     // immediate commands
@@ -1078,14 +1109,14 @@ void VulkanEngine::init_queries()
     _timestamp_period                    = device_limits.timestampPeriod;
 
     // 2 time points for 1 render pass
-    _time_stamps.resize(2);
+    _timestamps.resize(2);
 
     // create timestamp query pool
     VkQueryPoolCreateInfo query_pool_info =
-        vkinit::query_pool_create_info(VK_QUERY_TYPE_TIMESTAMP, static_cast<uint32_t>(_time_stamps.size()));
-    VK_CHECK(vkCreateQueryPool(_device, &query_pool_info, nullptr, &_query_pool_time_stamps));
+        vkinit::query_pool_create_info(VK_QUERY_TYPE_TIMESTAMP, static_cast<uint32_t>(_timestamps.size()));
+    VK_CHECK(vkCreateQueryPool(_device, &query_pool_info, nullptr, &_query_pool_timestamps));
 
-    _main_deletion_queue.push_function([=]() { vkDestroyQueryPool(_device, _query_pool_time_stamps, nullptr); });
+    _main_deletion_queue.push_function([=]() { vkDestroyQueryPool(_device, _query_pool_timestamps, nullptr); });
 }
 
 void VulkanEngine::init_sync_structures()
@@ -1094,20 +1125,28 @@ void VulkanEngine::init_sync_structures()
     // one fence to control when the gpu has finished rendering the frame,
     // and 2 semaphores to syncronize rendering with swapchain
     // we want the fence to start signalled so we can wait on it on the first frame
-    VkFenceCreateInfo fence_create_info         = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
-    VkSemaphoreCreateInfo semaphore_create_info = vkinit::semaphore_create_info();
+    VkFenceCreateInfo fence_create_info = vkinit::fence_create_info(VK_FENCE_CREATE_SIGNALED_BIT);
+    VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_imm_fence));
+
+    _main_deletion_queue.push_function([=]() { vkDestroyFence(_device, _imm_fence, nullptr); });
 
     for (int i = 0; i < FRAME_OVERLAP; i++)
     {
         VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_frames[i]._render_fence));
 
+        VkSemaphoreCreateInfo semaphore_create_info = vkinit::semaphore_create_info();
+
         VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._swapchain_semaphore));
         VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._render_semaphore));
-    }
 
-    // immediate fence
-    VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_imm_fence));
-    _main_deletion_queue.push_function([=]() { vkDestroyFence(_device, _imm_fence, nullptr); });
+        _main_deletion_queue.push_function(
+            [=]()
+            {
+                vkDestroyFence(_device, _frames[i]._render_fence, nullptr);
+                vkDestroySemaphore(_device, _frames[i]._swapchain_semaphore, nullptr);
+                vkDestroySemaphore(_device, _frames[i]._render_semaphore, nullptr);
+            });
+    }
 }
 
 void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
@@ -1369,11 +1408,14 @@ void VulkanEngine::init_descriptors()
 {
     // create a descriptor pool that will hold 10 sets with 1 image each
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}
+        {         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+        {        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
     };
 
     global_descriptor_allocator.init(_device, 10, sizes);
+
+    _main_deletion_queue.push_function([&]() { global_descriptor_allocator.destroy_pools(_device); });
 
     // make the descriptor set layout for our compute draw
     {
@@ -1394,6 +1436,15 @@ void VulkanEngine::init_descriptors()
         _gpu_scene_data_descriptor_layout =
             builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
     }
+
+    _main_deletion_queue.push_function(
+        [&]()
+        {
+            vkDestroyDescriptorSetLayout(_device, _draw_image_descriptor_layout, nullptr);
+            vkDestroyDescriptorSetLayout(_device, _single_image_descriptor_layout, nullptr);
+            vkDestroyDescriptorSetLayout(_device, _gpu_scene_data_descriptor_layout, nullptr);
+        });
+
     // allocate a descriptor set for our draw image
     _draw_image_descriptors = global_descriptor_allocator.allocate(_device, _draw_image_descriptor_layout);
     {
@@ -1403,16 +1454,6 @@ void VulkanEngine::init_descriptors()
 
         writer.update_set(_device, _draw_image_descriptors);
     }
-    // make sure both the descriptor allocator and the new layout get cleaned up properly
-    _main_deletion_queue.push_function(
-        [&]()
-        {
-            global_descriptor_allocator.destroy_pools(_device);
-
-            vkDestroyDescriptorSetLayout(_device, _draw_image_descriptor_layout, nullptr);
-            vkDestroyDescriptorSetLayout(_device, _single_image_descriptor_layout, nullptr);
-            vkDestroyDescriptorSetLayout(_device, _gpu_scene_data_descriptor_layout, nullptr);
-        });
 
     // Frame descriptors
 

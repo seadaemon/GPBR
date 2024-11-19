@@ -49,7 +49,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
             },
             [&](fastgltf::sources::Vector& vector)
             {
-                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
+                unsigned char* data = stbi_load_from_memory((unsigned char*)vector.bytes.data(),
                                                             static_cast<int>(vector.bytes.size()),
                                                             &width,
                                                             &height,
@@ -73,35 +73,36 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                 auto& bufferView = asset.bufferViews[view.bufferViewIndex];
                 auto& buffer     = asset.buffers[bufferView.bufferIndex];
 
-                std::visit(
-                    fastgltf::visitor{
-                        // We only care about VectorWithMime here, because we
-                        // specify LoadExternalBuffers, meaning all buffers
-                        // are already loaded into a vector.
-                        [](auto& arg) {},
-                        [&](fastgltf::sources::Vector& vector)
-                        {
-                            unsigned char* data = stbi_load_from_memory(
-                                reinterpret_cast<const unsigned char*>(vector.bytes.data()) + bufferView.byteOffset,
-                                static_cast<int>(bufferView.byteLength),
-                                &width,
-                                &height,
-                                &nrChannels,
-                                4);
-                            if (data)
-                            {
-                                VkExtent3D imagesize;
-                                imagesize.width  = width;
-                                imagesize.height = height;
-                                imagesize.depth  = 1;
+                // We only care about VectorWithMime here, because we
+                // specify LoadExternalBuffers, meaning all buffers
+                // are already loaded into a vector.
+                std::visit(fastgltf::visitor{[](auto& arg) { std::cout << "!monostate!" << std::endl; },
+                                             [&](fastgltf::sources::Array& array)
+                                             {
+                                                 unsigned char* data = stbi_load_from_memory(
+                                                     (unsigned char*)array.bytes.data() + bufferView.byteOffset,
+                                                     static_cast<int>(bufferView.byteLength),
+                                                     &width,
+                                                     &height,
+                                                     &nrChannels,
+                                                     4);
+                                                 if (data)
+                                                 {
+                                                     VkExtent3D imagesize;
+                                                     imagesize.width  = width;
+                                                     imagesize.height = height;
+                                                     imagesize.depth  = 1;
 
-                                newImage = engine->create_image(
-                                    data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                                     newImage = engine->create_image(data,
+                                                                                     imagesize,
+                                                                                     VK_FORMAT_R8G8B8A8_UNORM,
+                                                                                     VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                                     false);
 
-                                stbi_image_free(data);
-                            }
-                        }},
-                    buffer.data);
+                                                     stbi_image_free(data);
+                                                 }
+                                             }},
+                           buffer.data);
             },
         },
         image.data);
@@ -254,6 +255,10 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     std::vector<std::shared_ptr<GLTFMaterial>> materials;
 
     //= load all textures (use error texture by default) =======================
+
+    // TODO: Use different criteria to differentiate textures
+
+    int ic = 0; // image counter
     for (fastgltf::Image& image : gltf.images)
     {
         std::optional<AllocatedImage> img = load_image(engine, gltf, image);
@@ -261,15 +266,16 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         if (img.has_value())
         {
             images.push_back(*img);
-            file.images[image.name.c_str()] = *img;
+
+            file.images[(image.name + char(ic)).c_str()] = *img;
         }
         else
         {
-            // we failed to load, so lets give the slot a default white texture to not
-            // completely break loading
+            // use checkerboard texture in case of failure
             images.push_back(engine->_error_checkerboard_image);
             std::cout << "gltf failed to load texture " << image.name << std::endl;
         }
+        ic++;
     }
 
     //= load materials =========================================================
@@ -531,12 +537,8 @@ void LoadedGLTF::clear_all()
 {
     VkDevice dv = creator->_device;
 
-    descriptor_pool.destroy_pools(dv);
-    creator->destroy_buffer(material_data_buffer);
-
     for (auto& [k, v] : meshes)
     {
-
         creator->destroy_buffer(v->mesh_buffers.index_buffer);
         creator->destroy_buffer(v->mesh_buffers.vertex_buffer);
     }
@@ -556,6 +558,10 @@ void LoadedGLTF::clear_all()
     {
         vkDestroySampler(dv, sampler, nullptr);
     }
+
+    descriptor_pool.destroy_pools(dv);
+
+    creator->destroy_buffer(material_data_buffer);
 }
 
 //

@@ -9,7 +9,8 @@
 #include "vk_loader.h"
 #include "../camera.h"
 
-// A FILO queue that stores function callbacks
+// A deque that stores function callbacks.
+// Executes in first-in-last-out order.
 struct DeletionQueue
 {
     std::deque<std::function<void()>> deletors;
@@ -28,6 +29,7 @@ struct DeletionQueue
     }
 };
 
+// Contains the structures needed to draw a frame.
 struct FrameData
 {
     VkSemaphore _swapchain_semaphore, _render_semaphore;
@@ -40,8 +42,11 @@ struct FrameData
     DescriptorAllocatorGrowable _frame_descriptors;
 };
 
+// Specifies the number of frames to overlap.
+// ``FRAME_OVERLAP = 2`` implies double buffering
 constexpr unsigned int FRAME_OVERLAP = 2;
 
+// Contains uniform data which can be passed to a compute shader.
 struct ComputePushConstants
 {
     glm::vec4 data1;
@@ -50,6 +55,7 @@ struct ComputePushConstants
     glm::vec4 data4;
 };
 
+// Contains strutures needed to use a compute shader.
 struct ComputeEffect
 {
     const char* name;
@@ -60,7 +66,7 @@ struct ComputeEffect
     ComputePushConstants data;
 };
 
-// Contains glTF PBR parameters
+// Contains structures required to use glTF PBR materials.
 struct GLTFMetallic_Roughness
 {
     MaterialPipeline opaque_pipeline;
@@ -96,7 +102,7 @@ struct GLTFMetallic_Roughness
                                     DescriptorAllocatorGrowable& descriptor_allocator);
 };
 
-// Contains data for a single vkCmdDrawIndexed
+// Contains necessary data structures for a single vkCmdDrawIndexed command.
 struct RenderObject
 {
     uint32_t index_count;
@@ -109,12 +115,23 @@ struct RenderObject
     VkDeviceAddress vertex_buffer_address;
 };
 
+// Contains lists of RenderObjects which can be used for drawing.
 struct DrawContext
 {
     std::vector<RenderObject> opaque_surfaces;
     std::vector<RenderObject> transparent_surfaces;
 };
 
+// Contains statistics related to engine performance
+struct EngineStats
+{
+    float frame_time;
+    int triangle_count;
+    int drawcall_count;
+    float mesh_draw_time;
+};
+
+// Holds a shared pointer to a MeshAsset
 struct MeshNode : public Node
 {
     std::shared_ptr<MeshAsset> mesh;
@@ -122,45 +139,50 @@ struct MeshNode : public Node
     virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 };
 
+// Uses dynamic rendering to display 3D graphics
 class VulkanEngine
 {
   public:
+    EngineStats stats;
     bool _is_initialized{false};
-    int _frame_number{0}; // The number of frames elapsed since launch
     bool _stop_rendering{false};
-    VkExtent2D _window_extent{1700, 900};
-    // VkExtent2D _window_extent{1920, 1080};
     bool _resize_requested{false};
 
     struct SDL_Window* _window{nullptr};
     std::string _window_title;
+    VkExtent2D _window_extent{1700, 900};
+
+    // The number of frames elapsed since the start of the program.
+    int _frame_number{0};
 
     static VulkanEngine& get();
 
-    VkInstance _instance;                      // Vulkan library handle
-    VkDebugUtilsMessengerEXT _debug_messenger; // debugging output handle
-    VkPhysicalDevice _chosen_GPU;              // selected GPU
-    VkDevice _device;                          // device for commands
-    VkSurfaceKHR _surface;                     // window surface
-    VkQueue _graphics_queue;
-    uint32_t _graphics_queue_family;
+    VkInstance _instance;                      // Vulkan library handle.
+    VkDebugUtilsMessengerEXT _debug_messenger; // Debugging output handle.
+    VkPhysicalDevice _chosen_GPU;              // The selected GPU.
+    VkDevice _device;                          // Logical device for commands.
+    VkSurfaceKHR _surface;                     // Main window surface.
+    VkQueue _graphics_queue;                   // A queue used to submit work
+    uint32_t _graphics_queue_family;           // Describes a set of VkQueue with common properties.
 
-    FrameData _frames[FRAME_OVERLAP];
+    FrameData _frames[FRAME_OVERLAP]; // An array of FrameData objects.
 
     FrameData& get_current_frame() { return _frames[_frame_number % FRAME_OVERLAP]; };
 
-    VkSwapchainKHR _swapchain;
+    VkSwapchainKHR _swapchain; // Manages a list of image buffers that the GPU draws into
     VkFormat _swapchain_image_format;
 
     std::vector<VkImage> _swapchain_images;
     std::vector<VkImageView> _swapchain_image_views;
     VkExtent2D _swapchain_extent;
     VkExtent2D _draw_extent;
+    // Allows for dynamic resolution scaling.
+    // Do not exeed 1.0f.
     float _render_scale{1.0f};
 
     // Query pool for time stamps to calculate draw time
-    VkQueryPool _query_pool_time_stamps = VK_NULL_HANDLE;
-    std::vector<uint64_t> _time_stamps;
+    VkQueryPool _query_pool_timestamps = VK_NULL_HANDLE;
+    std::vector<uint64_t> _timestamps;
     float _timestamp_period = 0; // obtained from the GPU
 
     // time spent on a single frame (not just draw time)
@@ -170,15 +192,17 @@ class VulkanEngine
     // 1 second delay between updates
     float _FPS_delay{1.0f};
 
+    // Allocates memory for descriptors
     DescriptorAllocatorGrowable global_descriptor_allocator;
 
-    VkPipeline _gradient_pipeline;
-    VkPipelineLayout _gradient_pipeline_layout;
-    /*
-    std::vector<VkFramebuffer> _framebuffers;
-    std::vector<VkImage> _swapchainImages;
-    std::vector<VkImageView> _swapchainImageViews;
-    */
+    VkPipeline _gradient_pipeline;              // Intended for the gradient compute shaders.
+    VkPipelineLayout _gradient_pipeline_layout; // Intended for the gradient compute shaders.
+
+    VkPipeline _mesh_pipeline;              // Intended for 3D meshes
+    VkPipelineLayout _mesh_pipeline_layout; // Intended for 3D meshes
+
+    // std::vector<VkFramebuffer> _framebuffers;
+
     VkDescriptorSet _draw_image_descriptors;
     VkDescriptorSetLayout _draw_image_descriptor_layout;
 
@@ -188,12 +212,10 @@ class VulkanEngine
 
     VmaAllocator _allocator;
 
-    VkPipeline _mesh_pipeline;
-    VkPipelineLayout _mesh_pipeline_layout;
-
     std::vector<std::shared_ptr<MeshAsset>> test_meshes;
 
-    // immediate submit structures
+    // immediate rendering submit structures
+
     VkFence _imm_fence;
     VkCommandBuffer _imm_command_buffer;
     VkCommandPool _imm_command_pool;
@@ -226,25 +248,31 @@ class VulkanEngine
     std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
 
+    // A first-person camera.
     Camera _main_camera;
 
-    // initializes everything in the engine
+    // Initializes structures and objects required to run the engine.
     void init();
 
-    // shuts down the engine
+    // Destroys all objects and then terminates the program.
     void cleanup();
 
-    // draw loop
+    // The outermost draw loop.
+    // Typically used to call other draw loops.
     void draw();
 
+    // Draws the current scene.
     void draw_main(VkCommandBuffer cmd);
+    // Draws a background using compute shaders.
     void draw_background(VkCommandBuffer cmd);
+    // Draws 2D/3D geometry.
     void draw_geometry(VkCommandBuffer cmd);
+    // Draws ImGui windows using immediate rendering.
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);
-
+    // Updates the state of the current scene and its objects.
     void update_scene();
 
-    // run main loop
+    // A single-threaded loop which handles user input and draw calls.
     void run();
 
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
@@ -263,10 +291,14 @@ class VulkanEngine
     void destroy_image(const AllocatedImage& image);
 
   private:
+    // Initializes:
+    // instance, surface, devices, graphics queues, and the Vulkan Memory Allocator.
     void init_vulkan();
-
-    void init_swapchain();
+    // Creates a swapchain with its images and image views.
+    // This overwrites the current swapchain.
     void create_swapchain(uint32_t width, uint32_t height);
+    // Initializes the swapchain for the current display.
+    void init_swapchain();
     void destroy_swapchain();
     void resize_swapchain();
 
