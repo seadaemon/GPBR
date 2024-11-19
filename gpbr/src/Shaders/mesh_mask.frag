@@ -16,5 +16,10 @@ void main()
 	vec4 color = inColor.rgba * texture(colorTex,inUV).rgba;
 	vec3 ambient = color.xyz *  sceneData.ambient_color.xyz;
 
-	outFragColor = vec4(color.xyz * light_value * sceneData.sunlight_color.w + ambient, color.a);
+	outFragColor = vec4(color.xyz * light_value * sceneData.sunlight_color.w + ambient, 1.0f);
+	
+	if(color.a < materialData.alpha_cutoff.x)
+	{
+		discard;
+	}
 }

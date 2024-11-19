@@ -1652,6 +1652,12 @@ void VulkanEngine::destroy_image(const AllocatedImage& image)
 
 void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 {
+    VkShaderModule mesh_mask_frag_shader;
+    if (!vkutil::load_shader_module("./Shaders/mesh_mask.frag.debug.spv", engine->_device, &mesh_mask_frag_shader))
+    {
+        fmt::println("Error when building the mesh fragment shader module");
+    }
+
     VkShaderModule mesh_frag_shader;
     if (!vkutil::load_shader_module("./Shaders/mesh.frag.debug.spv", engine->_device, &mesh_frag_shader))
     {
@@ -1720,11 +1726,16 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 
     transparent_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
-    pipeline_builder.disable_blending();
-    // peline_builder.enable_blending_alphablend();
+    // pipeline_builder.disable_blending();
+    //  peline_builder.enable_blending_alphablend();
+
+    pipeline_builder.set_shaders(mesh_vertex_shader, mesh_mask_frag_shader);
+
+    pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
     mask_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
+    vkDestroyShaderModule(engine->_device, mesh_mask_frag_shader, nullptr);
     vkDestroyShaderModule(engine->_device, mesh_frag_shader, nullptr);
     vkDestroyShaderModule(engine->_device, mesh_vertex_shader, nullptr);
 }
