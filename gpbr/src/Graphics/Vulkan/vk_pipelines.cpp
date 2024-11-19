@@ -160,6 +160,8 @@ void PipelineBuilder::enable_blending_alphablend()
     _color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     _color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     _color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+    //_color_blend_attachment.colorWriteMask =
+    //  VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
 }
 
 void PipelineBuilder::set_color_attachment_format(VkFormat format)

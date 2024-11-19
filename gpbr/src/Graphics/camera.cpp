@@ -35,19 +35,19 @@ void Camera::process_SDL_event(SDL_Event& e)
     {
         if (e.key.key == SDLK_W)
         {
-            velocity.z = -1;
+            velocity.z = -max_velocity;
         }
         if (e.key.key == SDLK_S)
         {
-            velocity.z = 1;
+            velocity.z = max_velocity;
         }
         if (e.key.key == SDLK_A)
         {
-            velocity.x = -1;
+            velocity.x = -max_velocity;
         }
         if (e.key.key == SDLK_D)
         {
-            velocity.x = 1;
+            velocity.x = max_velocity;
         }
     }
     if (e.type == SDL_EVENT_KEY_UP)

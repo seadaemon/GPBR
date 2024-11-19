@@ -104,7 +104,7 @@ void VulkanEngine::init()
     /* 4 Initialize the camera */
 
     _main_camera.velocity = glm::vec3(0.f);
-    _main_camera.position = glm::vec3(0.f, 1.76f, 0.f);
+    _main_camera.position = glm::vec3(0.f, 1.76f, 5.f);
     _main_camera.pitch    = 0.f;
     _main_camera.yaw      = 0.f;
 
@@ -122,7 +122,7 @@ void VulkanEngine::init()
         {     "Structure Mat",      prefix + "structure_mat.glb"}
     };
 
-    std::string gltf_path{glTF_map["Sponza"]};
+    std::string gltf_path{glTF_map["AlphaBlendModeTest"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -399,7 +399,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     std::vector<uint32_t> opaque_draws;
     opaque_draws.reserve(_main_draw_context.opaque_surfaces.size());
 
-    for (int i = 0; i < _main_draw_context.opaque_surfaces.size(); i++)
+    for (uint32_t i = 0; i < _main_draw_context.opaque_surfaces.size(); i++)
     {
         /*
         if (is_visible(_main_draw_context.opaque_surfaces[i], _scene_data.view_proj))
@@ -532,9 +532,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         draw(r);
     }
 
+    for (auto& r : _main_draw_context.mask_surfaces)
+    {
+        draw(r);
+    }
+
     // we delete the draw commands now that we processed them
     _main_draw_context.opaque_surfaces.clear();
     _main_draw_context.transparent_surfaces.clear();
+    _main_draw_context.mask_surfaces.clear();
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
@@ -552,6 +558,8 @@ void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view
 
 void VulkanEngine::update_scene()
 {
+    auto start = std::chrono::system_clock::now();
+
     _main_camera.update();
 
     glm::mat4 view = _main_camera.get_view_matrix();
@@ -574,21 +582,15 @@ void VulkanEngine::update_scene()
 
     _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
 
-    //_scene_data.view = glm::translate(glm::vec3{0, 0, -5});
-
-    // camera projection
-    //_scene_data.proj =
-    // glm::perspective(glm::radians(70.f), (float)_window_extent.width / (float)_window_extent.height, 10000.f, 0.1f);
-
-    // invert the Y direction on projection matrix so that we are more similar
-    // to opengl and gltf axis
-    //_scene_data.proj[1][1] *= -1;
-    //_scene_data.view_proj = _scene_data.proj * _scene_data.view;
-
     // parameters for a directional light
     _scene_data.ambient_color      = glm::vec4(.5f);
     _scene_data.sunlight_color     = glm::vec4(1.f);
-    _scene_data.sunlight_direction = glm::vec4(0, 1, 0.5, 1.f);
+    _scene_data.sunlight_direction = glm::vec4(0, -1, -0.5, 1.f);
+
+    auto end     = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    stats.scene_update_time = elapsed.count() / 1000.f;
 }
 
 void VulkanEngine::draw()
@@ -643,8 +645,7 @@ void VulkanEngine::draw()
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     vkutil::transition_image(
         cmd, _depth_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    // TODO: CONTINUE HERE
-    // https://github.com/vblanco20-1/vulkan-guide/blob/dcf72a8b3cf93e27b917639a012be1b4b24b5e7d/chapter-5/vk_engine.cpp#L345
+
     draw_main(cmd);
 
     vkutil::transition_image(
@@ -810,10 +811,13 @@ void VulkanEngine::run()
         ImGui::NewFrame();
 
         ImGui::Begin("Stats");
-        ImGui::Text("frametime %f ms", stats.frame_time);
-        ImGui::Text("drawtime %f ms", stats.mesh_draw_time);
+        ImGui::SetWindowSize(ImVec2(200, 150));
+        ImGui::SetWindowPos(ImVec2(0, 0));
+        ImGui::Text("frame time %f ms", stats.frame_time);
+        ImGui::Text("draw time %f ms", stats.mesh_draw_time);
+        ImGui::Text("update time %f ms", stats.scene_update_time);
         ImGui::Text("triangles %i", stats.triangle_count);
-        ImGui::Text("drawws %i", stats.drawcall_count);
+        ImGui::Text("draws %i", stats.drawcall_count);
         ImGui::End();
 
         if (ImGui::Begin("background"))
@@ -832,8 +836,8 @@ void VulkanEngine::run()
             ImGui::InputFloat4("data4", (float*)&selected.data.data4);
         }
         ImGui::End();
-        // make imgui calculate internal draw structures
-        ImGui::Render();
+
+        ImGui::Render(); // make imgui calculate internal draw structures
 
         update_scene();
 
@@ -1685,6 +1689,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 
     opaque_pipeline.layout      = new_layout;
     transparent_pipeline.layout = new_layout;
+    mask_pipeline.layout        = new_layout;
 
     // build the stage-create-info for both vertex and fragment stages. This lets
     // the pipeline know the shader modules per stage
@@ -1708,11 +1713,17 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     opaque_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
     // create the transparent variant
-    pipeline_builder.enable_blending_additive();
+    // pipeline_builder.enable_blending_additive();
+    pipeline_builder.enable_blending_alphablend();
 
     pipeline_builder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
 
     transparent_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
+
+    pipeline_builder.disable_blending();
+    // peline_builder.enable_blending_alphablend();
+
+    mask_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
     vkDestroyShaderModule(engine->_device, mesh_frag_shader, nullptr);
     vkDestroyShaderModule(engine->_device, mesh_vertex_shader, nullptr);
@@ -1723,6 +1734,7 @@ void GLTFMetallic_Roughness::clear_resources(VkDevice device)
     vkDestroyDescriptorSetLayout(device, material_layout, nullptr);
     vkDestroyPipelineLayout(device, transparent_pipeline.layout, nullptr);
 
+    vkDestroyPipeline(device, mask_pipeline.pipeline, nullptr);
     vkDestroyPipeline(device, transparent_pipeline.pipeline, nullptr);
     vkDestroyPipeline(device, opaque_pipeline.pipeline, nullptr);
 }
@@ -1737,6 +1749,10 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device,
     if (pass == MaterialPass::Transparent)
     {
         mat_data.pipeline = &transparent_pipeline;
+    }
+    else if (pass == MaterialPass::Mask)
+    {
+        mat_data.pipeline = &mask_pipeline;
     }
     else
     {
@@ -1788,6 +1804,10 @@ void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
         if (s.material->data.pass_type == MaterialPass::Transparent)
         {
             ctx.transparent_surfaces.push_back(def);
+        }
+        if (s.material->data.pass_type == MaterialPass::Mask)
+        {
+            ctx.mask_surfaces.push_back(def);
         }
         else
         {

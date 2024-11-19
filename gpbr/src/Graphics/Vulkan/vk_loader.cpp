@@ -299,13 +299,15 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
         // gather material constants
         GLTFMetallic_Roughness::MaterialConstants constants;
-        constants.color_factors.x = mat.pbrData.baseColorFactor[0];
-        constants.color_factors.y = mat.pbrData.baseColorFactor[1];
-        constants.color_factors.z = mat.pbrData.baseColorFactor[2];
-        constants.color_factors.w = mat.pbrData.baseColorFactor[3];
-
+        constants.color_factors.x       = mat.pbrData.baseColorFactor[0];
+        constants.color_factors.y       = mat.pbrData.baseColorFactor[1];
+        constants.color_factors.z       = mat.pbrData.baseColorFactor[2];
+        constants.color_factors.w       = mat.pbrData.baseColorFactor[3];
         constants.metal_rough_factors.x = mat.pbrData.metallicFactor;
         constants.metal_rough_factors.y = mat.pbrData.roughnessFactor;
+
+        // get the alpha cut-off
+        constants.extra[0].x = mat.alphaCutoff;
 
         // write material parameters to buffer
         scene_material_constants[data_index] = constants;
@@ -315,6 +317,10 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         if (mat.alphaMode == fastgltf::AlphaMode::Blend)
         {
             pass_type = MaterialPass::Transparent;
+        }
+        else if (mat.alphaMode == fastgltf::AlphaMode::Mask)
+        {
+            pass_type = MaterialPass::Mask;
         }
 
         GLTFMetallic_Roughness::MaterialResources material_resources;

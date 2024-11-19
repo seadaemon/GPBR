@@ -7,6 +7,7 @@
 
 class VulkanEngine; // forward declaration
 
+// An implementation of of an oriented bounding box
 struct Bounds
 {
     glm::vec3 origin;

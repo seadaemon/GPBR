@@ -71,6 +71,7 @@ struct GLTFMetallic_Roughness
 {
     MaterialPipeline opaque_pipeline;
     MaterialPipeline transparent_pipeline;
+    MaterialPipeline mask_pipeline;
 
     VkDescriptorSetLayout material_layout;
 
@@ -120,6 +121,7 @@ struct DrawContext
 {
     std::vector<RenderObject> opaque_surfaces;
     std::vector<RenderObject> transparent_surfaces;
+    std::vector<RenderObject> mask_surfaces;
 };
 
 // Contains statistics related to engine performance
@@ -128,6 +130,7 @@ struct EngineStats
     float frame_time;
     int triangle_count;
     int drawcall_count;
+    float scene_update_time;
     float mesh_draw_time;
 };
 
