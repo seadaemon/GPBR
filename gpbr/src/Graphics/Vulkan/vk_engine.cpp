@@ -117,12 +117,13 @@ void VulkanEngine::init()
         {               "Cow",                prefix + "Cow.glb"},
         {              "Duck",               prefix + "Duck.glb"},
         {            "Dragon",  prefix + "DragonAttenuation.glb"},
+        {           "Dragon2",            prefix + "Dragon2.glb"},
         {            "Sponza",             prefix + "sponza.glb"},
         {         "Structure",          prefix + "structure.glb"},
         {     "Structure Mat",      prefix + "structure_mat.glb"}
     };
 
-    std::string gltf_path{glTF_map["AlphaBlendModeTest"]};
+    std::string gltf_path{glTF_map["Dragon"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -205,25 +206,6 @@ void VulkanEngine::init_default_data()
 
     _default_data = _metal_rough_material.write_material(
         _device, MaterialPass::MainColor, materialResources, global_descriptor_allocator);
-
-    //= default meshes =========================================================
-    test_meshes = load_gltf_meshes(this, ".\\Assets\\basicmesh.glb").value();
-
-    for (auto& m : test_meshes)
-    {
-        std::shared_ptr<MeshNode> new_node = std::make_shared<MeshNode>();
-        new_node->mesh                     = m;
-
-        new_node->local_transform = glm::mat4{1.f};
-        new_node->world_transform = glm::mat4{1.f};
-
-        for (auto& s : new_node->mesh->surfaces)
-        {
-            s.material = std::make_shared<GLTFMaterial>(_default_data);
-        }
-
-        _loaded_nodes[m->name] = std::move(new_node);
-    }
 }
 
 void VulkanEngine::destroy_swapchain()
@@ -267,12 +249,6 @@ void VulkanEngine::cleanup()
         for (auto& frame : _frames)
         {
             frame._deletion_queue.flush();
-        }
-
-        for (auto& mesh : test_meshes)
-        {
-            destroy_buffer(mesh->mesh_buffers.index_buffer);
-            destroy_buffer(mesh->mesh_buffers.vertex_buffer);
         }
 
         _main_deletion_queue.flush();
@@ -576,16 +552,12 @@ void VulkanEngine::update_scene()
 
     //=====================================================================================
 
-    _main_draw_context.opaque_surfaces.clear();
-
-    //_loaded_nodes["Suzanne"]->draw(glm::mat4{1.f}, _main_draw_context);
-
     _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
 
     // parameters for a directional light
-    _scene_data.ambient_color      = glm::vec4(.5f);
-    _scene_data.sunlight_color     = glm::vec4(1.f);
-    _scene_data.sunlight_direction = glm::vec4(0, -1, -0.5, 1.f);
+    _scene_data.ambient_color      = glm::vec4(.1f);
+    _scene_data.sunlight_color     = glm::vec4(1.f, 1.f, 1.f, 0.3f);
+    _scene_data.sunlight_direction = glm::vec4(0, 1, -0.5, 1.f);
 
     auto end     = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1635,12 +1607,22 @@ AllocatedImage VulkanEngine::create_image(void* data,
             vkCmdCopyBufferToImage(
                 cmd, upload_buffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
 
-            vkutil::transition_image(
-                cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            if (mipmapped)
+            {
+                vkutil::generate_mipmaps(
+                    cmd, new_image.image, VkExtent2D{new_image.image_extent.width, new_image.image_extent.height});
+            }
+            else
+            {
+
+                vkutil::transition_image(cmd,
+                                         new_image.image,
+                                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
         });
 
     destroy_buffer(upload_buffer);
-
     return new_image;
 }
 

@@ -215,8 +215,6 @@ class VulkanEngine
 
     VmaAllocator _allocator;
 
-    std::vector<std::shared_ptr<MeshAsset>> test_meshes;
-
     // immediate rendering submit structures
 
     VkFence _imm_fence;
@@ -243,7 +241,6 @@ class VulkanEngine
     GLTFMetallic_Roughness _metal_rough_material;
 
     std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> _loaded_scenes;
-    std::unordered_map<std::string, std::shared_ptr<Node>> _loaded_nodes;
 
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
     // VkDescriptorSetLayout _gltf_mat_descriptor_layout;

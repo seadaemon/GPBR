@@ -42,7 +42,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                     imagesize.depth  = 1;
 
                     newImage = engine->create_image(
-                        data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -163,7 +163,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     scene->creator                    = engine;
     LoadedGLTF& file                  = *scene.get();
 
-    fastgltf::Parser parser{};
+    fastgltf::Parser parser =
+        fastgltf::Parser(fastgltf::Extensions::KHR_materials_transmission | fastgltf::Extensions::KHR_materials_volume);
 
     constexpr auto gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
                                   fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
@@ -308,6 +309,31 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
         // get the alpha cut-off
         constants.extra[0].x = mat.alphaCutoff;
+
+        // mat.transmission.get()->transmissionFactor;
+        fastgltf::MaterialTransmission* mat_transmission = mat.transmission.get();
+        fastgltf::MaterialVolume* mat_volume             = mat.volume.get();
+
+        if (mat_transmission)
+        {
+            fmt::println("Material Transmission : {}", mat.name);
+            constants.extra[1].x = mat_transmission->transmissionFactor;
+        }
+        if (mat_volume)
+        {
+            fmt::println("Material Volume : {}", mat.name);
+            constants.extra[2].x = mat_volume->attenuationColor.x();
+            constants.extra[2].y = mat_volume->attenuationColor.y();
+            constants.extra[2].z = mat_volume->attenuationColor.z();
+
+            constants.extra[3].x = mat_volume->attenuationDistance;
+
+            constants.extra[4].x = mat_volume->thicknessFactor;
+            // mat_volume->thicknessTexture
+        }
+        // fastgltf::Material::transmission
+
+        // fmt::println("\"{}\" : {}", mat.name, mat.transmission.get()->transmissionFactor);
 
         // write material parameters to buffer
         scene_material_constants[data_index] = constants;
