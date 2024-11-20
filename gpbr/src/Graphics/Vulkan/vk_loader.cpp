@@ -314,6 +314,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
         // determine if material supports transparency
         MaterialPass pass_type = MaterialPass::MainColor;
+
         if (mat.alphaMode == fastgltf::AlphaMode::Blend)
         {
             pass_type = MaterialPass::Transparent;

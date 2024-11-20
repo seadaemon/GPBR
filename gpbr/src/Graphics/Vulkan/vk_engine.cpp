@@ -113,23 +113,24 @@ void VulkanEngine::init()
     std::string prefix{".\\Assets\\"};
 
     std::unordered_map<std::string, std::string> glTF_map{
-        {"AlphaBlendModeTest",       prefix + "AlphaBlendModeTest.glb"},
-        {             "Basic",                prefix + "basicmesh.glb"},
-        {               "Cow",                      prefix + "Cow.glb"},
-        {              "Cube",                     prefix + "Cube.glb"},
-        {              "Duck",                     prefix + "Duck.glb"},
-        {            "Dragon",        prefix + "DragonAttenuation.glb"},
-        {           "Dragon2",                  prefix + "Dragon2.glb"},
-        {            "Sphere",                   prefix + "Sphere.glb"},
-        {            "Sponza",                   prefix + "sponza.glb"},
-        {         "Structure",                prefix + "structure.glb"},
-        {     "Structure Mat",            prefix + "structure_mat.glb"},
-        {           "Suzanne",                  prefix + "Suzanne.glb"},
-        {    "Deccer Colored",  prefix + "SM_Deccer_Cubes_Colored.glb"},
-        {   "Deccer Textured", prefix + "SM_Deccer_Cubes_Textured.glb"}
+        {"AlphaBlendModeTest",            prefix + "AlphaBlendModeTest.glb"},
+        {             "Basic",                     prefix + "basicmesh.glb"},
+        {               "Cow",                           prefix + "Cow.glb"},
+        {              "Cube",                          prefix + "Cube.glb"},
+        {              "Duck",                          prefix + "Duck.glb"},
+        {            "Dragon",             prefix + "DragonAttenuation.glb"},
+        {           "Dragon2",                       prefix + "Dragon2.glb"},
+        {            "Sphere",                        prefix + "Sphere.glb"},
+        {            "Sponza",                        prefix + "sponza.glb"},
+        {         "Structure",                     prefix + "structure.glb"},
+        {     "Structure Mat",                 prefix + "structure_mat.glb"},
+        {           "Suzanne",                       prefix + "Suzanne.glb"},
+        {    "Deccer Colored",       prefix + "SM_Deccer_Cubes_Colored.glb"},
+        {   "Deccer Textured",      prefix + "SM_Deccer_Cubes_Textured.glb"},
+        {    "Deccer Rotated", prefix + "SM_Deccer_Cubes_With_Rotation.glb"}
     };
 
-    std::string gltf_path{glTF_map["Sponza"]};
+    std::string gltf_path{glTF_map["Deccer Textured"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -1637,20 +1638,14 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     opaque_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
     // create the transparent variant
-    // pipeline_builder.enable_blending_additive();
-    pipeline_builder.enable_blending_alphablend();
-
+    pipeline_builder.enable_blending_additive();
+    // pipeline_builder.enable_blending_alphablend();
     pipeline_builder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
     transparent_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
-    // pipeline_builder.disable_blending();
-    //  peline_builder.enable_blending_alphablend();
-
+    pipeline_builder.disable_blending();
     pipeline_builder.set_shaders(mesh_vertex_shader, mesh_mask_frag_shader);
-
-    pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
+    // pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     mask_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
     vkDestroyShaderModule(engine->_device, mesh_mask_frag_shader, nullptr);
