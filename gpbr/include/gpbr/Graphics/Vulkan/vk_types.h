@@ -78,7 +78,6 @@ struct MaterialInstance
 
 struct Vertex
 {
-
     glm::vec3 position;
     float uv_x;
     glm::vec3 normal;
@@ -89,7 +88,6 @@ struct Vertex
 // holds the resources needed for a mesh
 struct GPUMeshBuffers
 {
-
     AllocatedBuffer index_buffer;
     AllocatedBuffer vertex_buffer;
     VkDeviceAddress vertex_buffer_address;

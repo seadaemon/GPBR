@@ -113,17 +113,23 @@ void VulkanEngine::init()
     std::string prefix{".\\Assets\\"};
 
     std::unordered_map<std::string, std::string> glTF_map{
-        {"AlphaBlendModeTest", prefix + "AlphaBlendModeTest.glb"},
-        {               "Cow",                prefix + "Cow.glb"},
-        {              "Duck",               prefix + "Duck.glb"},
-        {            "Dragon",  prefix + "DragonAttenuation.glb"},
-        {           "Dragon2",            prefix + "Dragon2.glb"},
-        {            "Sponza",             prefix + "sponza.glb"},
-        {         "Structure",          prefix + "structure.glb"},
-        {     "Structure Mat",      prefix + "structure_mat.glb"}
+        {"AlphaBlendModeTest",       prefix + "AlphaBlendModeTest.glb"},
+        {             "Basic",                prefix + "basicmesh.glb"},
+        {               "Cow",                      prefix + "Cow.glb"},
+        {              "Cube",                     prefix + "Cube.glb"},
+        {              "Duck",                     prefix + "Duck.glb"},
+        {            "Dragon",        prefix + "DragonAttenuation.glb"},
+        {           "Dragon2",                  prefix + "Dragon2.glb"},
+        {            "Sphere",                   prefix + "Sphere.glb"},
+        {            "Sponza",                   prefix + "sponza.glb"},
+        {         "Structure",                prefix + "structure.glb"},
+        {     "Structure Mat",            prefix + "structure_mat.glb"},
+        {           "Suzanne",                  prefix + "Suzanne.glb"},
+        {    "Deccer Colored",  prefix + "SM_Deccer_Cubes_Colored.glb"},
+        {   "Deccer Textured", prefix + "SM_Deccer_Cubes_Textured.glb"}
     };
 
-    std::string gltf_path{glTF_map["Dragon"]};
+    std::string gltf_path{glTF_map["Sponza"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -517,6 +523,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     _main_draw_context.opaque_surfaces.clear();
     _main_draw_context.transparent_surfaces.clear();
     _main_draw_context.mask_surfaces.clear();
+    _main_camera.update();
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
@@ -536,8 +543,6 @@ void VulkanEngine::update_scene()
 {
     auto start = std::chrono::system_clock::now();
 
-    _main_camera.update();
-
     glm::mat4 view = _main_camera.get_view_matrix();
     glm::mat4 projection =
         glm::perspective(glm::radians(70.0f), (float)_draw_extent.width / (float)_draw_extent.height, 1000.f, 0.1f);
@@ -550,14 +555,14 @@ void VulkanEngine::update_scene()
     _scene_data.proj      = projection;
     _scene_data.view_proj = projection * view;
 
-    //=====================================================================================
-
-    _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
-
     // parameters for a directional light
     _scene_data.ambient_color      = glm::vec4(.1f);
-    _scene_data.sunlight_color     = glm::vec4(1.f, 1.f, 1.f, 0.3f);
-    _scene_data.sunlight_direction = glm::vec4(0, 1, -0.5, 1.f);
+    _scene_data.sunlight_color     = glm::vec4(1.f, 1.f, 1.f, 1.0f);
+    _scene_data.sunlight_direction = glm::vec4(0.5f, 1.f, 0.5f, 1.f);
+
+    // glm::mat4 rot = glm::rotate(glm::mat4{1.f}, glm::radians(.1f * _frame_number), glm::vec3(0, 1, 0));
+
+    _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
 
     auto end     = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1222,9 +1227,6 @@ void VulkanEngine::init_pipelines()
     // COMPUTE PIPELINES
     init_background_pipelines();
 
-    // GRAPHICS PIPELINES
-    init_mesh_pipeline();
-
     // glTF PBR PIPELINES
     _metal_rough_material.build_pipelines(this);
 }
@@ -1278,8 +1280,8 @@ void VulkanEngine::init_background_pipelines()
     gradient.data   = {};
 
     // default colors
-    gradient.data.data1 = glm::vec4(1, 0, 0, 1);
-    gradient.data.data2 = glm::vec4(0, 0, 1, 1);
+    gradient.data.data1 = glm::vec4(1, 1, 1, 1);
+    gradient.data.data2 = glm::vec4(1, 1, 1, 1);
 
     VK_CHECK(vkCreateComputePipelines(
         _device, VK_NULL_HANDLE, 1, &compute_pipeline_create_info, nullptr, &gradient.pipeline));
@@ -1310,73 +1312,6 @@ void VulkanEngine::init_background_pipelines()
             vkDestroyPipelineLayout(_device, _gradient_pipeline_layout, nullptr);
             vkDestroyPipeline(_device, sky.pipeline, nullptr);
             vkDestroyPipeline(_device, gradient.pipeline, nullptr);
-        });
-}
-
-void VulkanEngine::init_mesh_pipeline()
-{
-    VkShaderModule triangle_frag_shader;
-    if (!vkutil::load_shader_module("./Shaders/tex_image.frag.debug.spv", _device, &triangle_frag_shader))
-    {
-        fmt::print("Error when building the triangle fragment shader module");
-    }
-    else
-    {
-        fmt::print("Triangle fragment shader successfully loaded\n");
-    }
-
-    VkShaderModule triangle_vertex_shader;
-    if (!vkutil::load_shader_module("./Shaders/colored_triangle_mesh.vert.debug.spv", _device, &triangle_vertex_shader))
-    {
-        fmt::print("Error when building the triangle vertex shader module");
-    }
-    else
-    {
-        fmt::print("Triangle vertex shader successfully loaded\n");
-    }
-
-    // Push constants
-    VkPushConstantRange buffer_range{};
-    buffer_range.offset     = 0;
-    buffer_range.size       = sizeof(GPUDrawPushConstants);
-    buffer_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    // pipeline layout to control input/output of the shader
-    VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
-    pipeline_layout_info.pPushConstantRanges        = &buffer_range;
-    pipeline_layout_info.pushConstantRangeCount     = 1;
-    pipeline_layout_info.pSetLayouts                = &_single_image_descriptor_layout;
-    pipeline_layout_info.setLayoutCount             = 1;
-    VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_mesh_pipeline_layout));
-
-    PipelineBuilder pipeline_builder;
-    pipeline_builder._pipeline_layout = _mesh_pipeline_layout;
-    pipeline_builder.set_shaders(triangle_vertex_shader, triangle_frag_shader);
-    pipeline_builder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_FILL);
-    // no backface culling
-    pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    pipeline_builder.set_multisampling_none();
-    // pipeline_builder.disable_blending();
-    // pipeline_builder.enable_blending_additive();
-    pipeline_builder.enable_blending_alphablend();
-    // pipeline_builder.disable_depthtest();
-    pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-
-    pipeline_builder.set_color_attachment_format(_draw_image.image_format);
-    pipeline_builder.set_depth_format(_depth_image.image_format);
-
-    _mesh_pipeline = pipeline_builder.build_pipeline(_device);
-
-    // clean structs
-    vkDestroyShaderModule(_device, triangle_frag_shader, nullptr);
-    vkDestroyShaderModule(_device, triangle_vertex_shader, nullptr);
-
-    _main_deletion_queue.push_function(
-        [&]()
-        {
-            vkDestroyPipelineLayout(_device, _mesh_pipeline_layout, nullptr);
-            vkDestroyPipeline(_device, _mesh_pipeline, nullptr);
         });
 }
 
@@ -1685,6 +1620,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     pipeline_builder.set_shaders(mesh_vertex_shader, mesh_frag_shader);
     pipeline_builder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_FILL);
+    // pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_LINE);
     pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     pipeline_builder.set_multisampling_none();
     pipeline_builder.disable_blending();
@@ -1798,7 +1734,7 @@ void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
         {
             ctx.transparent_surfaces.push_back(def);
         }
-        if (s.material->data.pass_type == MaterialPass::Mask)
+        else if (s.material->data.pass_type == MaterialPass::Mask)
         {
             ctx.mask_surfaces.push_back(def);
         }

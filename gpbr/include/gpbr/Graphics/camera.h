@@ -5,9 +5,10 @@
 class Camera
 {
   public:
-    float max_velocity{0.25f};
+    float max_velocity{0.1f};
     glm::vec3 velocity;
     glm::vec3 position;
+    glm::mat4 rotation_mat = glm::mat4(1.f);
 
     float pitch{0.f}; // vertical rotation
     float yaw{0.f};   // horitzontal rotation
