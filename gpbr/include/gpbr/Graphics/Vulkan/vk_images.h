@@ -4,7 +4,7 @@
 
 namespace vkutil
 {
-  
+
 void transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
 
 void copy_image_to_image(VkCommandBuffer cmd,
@@ -13,5 +13,5 @@ void copy_image_to_image(VkCommandBuffer cmd,
                          VkExtent2D srcSize,
                          VkExtent2D dstSize);
 
-void generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
+void generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D image_size);
 } // namespace vkutil

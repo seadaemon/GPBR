@@ -32,8 +32,7 @@ void vkutil::transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout 
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
-//< transition
-//> copyimg
+
 void vkutil::copy_image_to_image(VkCommandBuffer cmd,
                                  VkImage source,
                                  VkImage destination,
@@ -71,17 +70,16 @@ void vkutil::copy_image_to_image(VkCommandBuffer cmd,
 
     vkCmdBlitImage2(cmd, &blitInfo);
 }
-//< copyimg
-//> mipgen
-void vkutil::generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
+
+void vkutil::generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D image_size)
 {
-    int mipLevels = int(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
+    int mipLevels = int(std::floor(std::log2(std::max(image_size.width, image_size.height)))) + 1;
     for (int mip = 0; mip < mipLevels; mip++)
     {
 
-        VkExtent2D halfSize = imageSize;
-        halfSize.width /= 2;
-        halfSize.height /= 2;
+        VkExtent2D half_size = image_size;
+        half_size.width /= 2;
+        half_size.height /= 2;
 
         VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .pNext = nullptr};
 
@@ -109,12 +107,12 @@ void vkutil::generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D ima
         {
             VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
 
-            blitRegion.srcOffsets[1].x = imageSize.width;
-            blitRegion.srcOffsets[1].y = imageSize.height;
+            blitRegion.srcOffsets[1].x = image_size.width;
+            blitRegion.srcOffsets[1].y = image_size.height;
             blitRegion.srcOffsets[1].z = 1;
 
-            blitRegion.dstOffsets[1].x = halfSize.width;
-            blitRegion.dstOffsets[1].y = halfSize.height;
+            blitRegion.dstOffsets[1].x = half_size.width;
+            blitRegion.dstOffsets[1].y = half_size.height;
             blitRegion.dstOffsets[1].z = 1;
 
             blitRegion.srcSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -138,11 +136,10 @@ void vkutil::generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D ima
 
             vkCmdBlitImage2(cmd, &blitInfo);
 
-            imageSize = halfSize;
+            image_size = half_size;
         }
     }
 
     // transition all mip levels into the final read_only layout
     transition_image(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
-//< mipgen

@@ -1,0 +1,39 @@
+Some GLB files cause the application to crash.
+I suspect the issue lies withing the load_gltf() method.
+Not all glTFs are made equally, some load and some don't.
+
+AFTER WORKAROUND (mesh.get() != nullptr)
+
+Loadable:
+AlphaBlendModeTest.glb
+basicmesh.glb
+Cow.glb (**)
+DragonAttenuation.glb
+Duck.glb (**)
+Duck2.glb
+structure.glb
+structure_mat.glb
+
+Non-Loadable:
+Avocado.glb
+BoomBox.glb
+
+(**) - Loads but is not visible
+
+BEFORE WORKAROUND (mesh.get() != nullptr)
+
+Loadable:
+AlphaBlendModeTest.glb
+basicmesh.glb
+DragonAttenuation.glb
+Duck2.glb
+
+Non-Loadable:
+Avocado.glb
+BoomBox.glb
+Cow.glb (*)
+Duck.glb (*)
+structure.glb (*)
+structure_mat.glb (*)
+
+(*) - Causes a crash without spawning an error prompt

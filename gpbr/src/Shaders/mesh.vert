@@ -5,7 +5,7 @@
 #include "input_structures.glsl"
 
 layout (location = 0) out vec3 outNormal;
-layout (location = 1) out vec3 outColor;
+layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec2 outUV;
 
 struct Vertex {
@@ -31,13 +31,13 @@ layout( push_constant ) uniform constants
 void main() 
 {
 	Vertex v = PushConstants.vertex_buffer.vertices[gl_VertexIndex];
-	
+
 	vec4 position = vec4(v.position, 1.0f);
 
 	gl_Position =  sceneData.view_proj * PushConstants.render_matrix * position;
 
-	outNormal = (PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz;
-	outColor = v.color.xyz * materialData.color_factors.xyz;	
+	outNormal = normalize((PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz);
+	outColor = v.color.rgba * materialData.color_factors.rgba;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
 }
