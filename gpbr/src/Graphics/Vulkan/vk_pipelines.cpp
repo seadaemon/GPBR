@@ -118,11 +118,23 @@ void PipelineBuilder::set_cull_mode(VkCullModeFlags cull_mode, VkFrontFace front
 void PipelineBuilder::set_multisampling_none()
 {
     _multisampling.sampleShadingEnable = VK_FALSE;
-    // multisampling defaulted to no multisampling (1 sample per pixel)
-    _multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    _multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; // 1 sample per pixel
     _multisampling.minSampleShading     = 1.0f;
     _multisampling.pSampleMask          = nullptr;
-    // no alpha to coverage either
+
+    _multisampling.alphaToCoverageEnable = VK_FALSE;
+    _multisampling.alphaToOneEnable      = VK_FALSE;
+}
+
+void PipelineBuilder::set_multisampling_max(VkSampleCountFlagBits sample_count)
+{
+    _multisampling.sampleShadingEnable = VK_TRUE;
+
+    _multisampling.rasterizationSamples = sample_count;
+    _multisampling.minSampleShading     = 1.0f;
+    _multisampling.pSampleMask          = nullptr;
+
     _multisampling.alphaToCoverageEnable = VK_FALSE;
     _multisampling.alphaToOneEnable      = VK_FALSE;
 }

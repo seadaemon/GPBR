@@ -1,11 +1,11 @@
 #pragma once
-
 #include "vk_types.h"
 #include "vk_descriptors.h"
 #include <unordered_map>
 #include <filesystem>
 
-class VulkanEngine; // forward declaration
+// forward declaration
+class VulkanEngine;
 
 // An implementation of of an oriented bounding box
 struct Bounds
@@ -67,7 +67,3 @@ struct LoadedGLTF : public IRenderable
 };
 
 std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::string_view file_path);
-
-[[deprecated("Use load_gltf() instead")]] //
-std::optional<std::vector<std::shared_ptr<MeshAsset>>>
-load_gltf_meshes(VulkanEngine* engine, std::filesystem::path file_path);

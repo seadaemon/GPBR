@@ -389,7 +389,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
         {
             opaque_draws.push_back(i);
         }
-        */
+       */
         opaque_draws.push_back(i);
     }
 
@@ -440,7 +440,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
             lastMaterial = r.material;
             if (r.material->pipeline != lastPipeline)
             {
-
                 lastPipeline = r.material->pipeline;
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, r.material->pipeline->pipeline);
                 vkCmdBindDescriptorSets(cmd,
@@ -499,6 +498,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
         stats.drawcall_count++;
         stats.triangle_count += r.index_count / 3;
+
         vkCmdDrawIndexed(cmd, r.index_count, 1, r.first_index, 0, 0);
     };
 
@@ -828,6 +828,21 @@ void VulkanEngine::run()
     }
 }
 
+// Helper to determine the maximum sample count of a physical device
+static VkSampleCountFlagBits get_max_sample_count(VkPhysicalDeviceLimits& limits)
+{
+    VkSampleCountFlags counts = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+    // clang-format off
+    if (counts & VK_SAMPLE_COUNT_64_BIT){ return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT){ return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT){ return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT){ return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT){ return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT){ return VK_SAMPLE_COUNT_2_BIT; }
+    // clang-format on
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 void VulkanEngine::init_vulkan()
 {
     /* 1 Create handles to the Vulkan library and the debug messenger */
@@ -864,7 +879,8 @@ void VulkanEngine::init_vulkan()
 
     // Vulkan 1.0 features
     VkPhysicalDeviceFeatures features{};
-    features.fillModeNonSolid = true;
+    features.fillModeNonSolid  = true;
+    features.sampleRateShading = true;
 
     vkb::PhysicalDeviceSelector selector{vkb_inst};
 
@@ -890,7 +906,13 @@ void VulkanEngine::init_vulkan()
     _device     = vkb_device.device;
     _chosen_GPU = physical_device.physical_device;
 
-    fmt::println("{}\n", physical_device.name);
+    fmt::println("{}", physical_device.name);
+
+    /* 3.2 Determine the maximum number of samples supported by this device */
+
+    _msaa_samples = get_max_sample_count(physical_device.properties.limits);
+
+    fmt::println("MSAA Sample Limit: {}\n", string_VkSampleCountFlagBits(_msaa_samples));
 
     /* 4 Use Volk to dynamically load function entrypoints */
 
@@ -1470,7 +1492,8 @@ void VulkanEngine::destroy_buffer(const AllocatedBuffer& buffer)
 AllocatedImage VulkanEngine::create_image(VkExtent3D size,
                                           VkFormat format,
                                           VkImageUsageFlags usage,
-                                          bool mipmapped /*= false*/)
+                                          bool mipmapped /*= false*/,
+                                          bool multisampled /*= false*/)
 {
     AllocatedImage new_image;
     new_image.image_format = format;
@@ -1480,6 +1503,10 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size,
     if (mipmapped)
     {
         img_info.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+    }
+    if (multisampled)
+    {
+        img_info.samples = _msaa_samples;
     }
 
     // always allocate images on dedicated GPU memory
@@ -1491,14 +1518,14 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size,
     VK_CHECK(vmaCreateImage(_allocator, &img_info, &allocinfo, &new_image.image, &new_image.allocation, nullptr));
 
     // set aspect flag
-    VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags aspect_flag = VK_IMAGE_ASPECT_COLOR_BIT;
     if (format == VK_FORMAT_D32_SFLOAT)
     {
-        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+        aspect_flag = VK_IMAGE_ASPECT_DEPTH_BIT;
     }
 
     // build a image-view for the image
-    VkImageViewCreateInfo view_info       = vkinit::imageview_create_info(format, new_image.image, aspectFlag);
+    VkImageViewCreateInfo view_info       = vkinit::imageview_create_info(format, new_image.image, aspect_flag);
     view_info.subresourceRange.levelCount = img_info.mipLevels;
 
     VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &new_image.image_view));
@@ -1510,7 +1537,8 @@ AllocatedImage VulkanEngine::create_image(void* data,
                                           VkExtent3D size,
                                           VkFormat format,
                                           VkImageUsageFlags usage,
-                                          bool mipmapped /*= false*/)
+                                          bool mipmapped /*= false*/,
+                                          bool multisampled /*= false*/)
 {
     // create staging buffer to hold pixel data
     size_t data_size = size.depth * size.width * size.height * 4;
@@ -1519,8 +1547,11 @@ AllocatedImage VulkanEngine::create_image(void* data,
 
     memcpy(upload_buffer.info.pMappedData, data, data_size);
 
-    AllocatedImage new_image = create_image(
-        size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+    AllocatedImage new_image = create_image(size,
+                                            format,
+                                            usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                            mipmapped,
+                                            multisampled);
 
     // copy staging buffer pixel data into the new_image
     immediate_submit(
@@ -1620,10 +1651,15 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     PipelineBuilder pipeline_builder;
     pipeline_builder.set_shaders(mesh_vertex_shader, mesh_frag_shader);
     pipeline_builder.set_input_topology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
     pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_FILL);
     // pipeline_builder.set_polygon_mode(VK_POLYGON_MODE_LINE);
-    pipeline_builder.set_cull_mode(VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+
+    pipeline_builder.set_cull_mode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+
     pipeline_builder.set_multisampling_none();
+    // pipeline_builder.set_multisampling_max(engine->_msaa_samples);
+
     pipeline_builder.disable_blending();
     pipeline_builder.enable_depthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
 

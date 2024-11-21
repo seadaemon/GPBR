@@ -168,6 +168,9 @@ class VulkanEngine
     VkQueue _graphics_queue;                   // A queue used to submit work
     uint32_t _graphics_queue_family;           // Describes a set of VkQueue with common properties.
 
+    // Maximum number of samples supported by the current physical device
+    VkSampleCountFlagBits _msaa_samples{VK_SAMPLE_COUNT_1_BIT};
+
     FrameData _frames[FRAME_OVERLAP]; // An array of FrameData objects.
 
     FrameData& get_current_frame() { return _frames[_frame_number % FRAME_OVERLAP]; };
@@ -282,12 +285,17 @@ class VulkanEngine
     AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
     void destroy_buffer(const AllocatedBuffer& buffer);
 
-    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage create_image(VkExtent3D size,
+                                VkFormat format,
+                                VkImageUsageFlags usage,
+                                bool mipmapped    = false,
+                                bool multisampled = false);
     AllocatedImage create_image(void* data,
                                 VkExtent3D size,
                                 VkFormat format,
                                 VkImageUsageFlags usage,
-                                bool mipmapped = false);
+                                bool mipmapped    = false,
+                                bool multisampled = false);
     void destroy_image(const AllocatedImage& image);
 
   private:

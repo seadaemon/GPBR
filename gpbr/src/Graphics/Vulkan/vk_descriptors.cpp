@@ -2,7 +2,6 @@
 #include "gpbr/Graphics/Vulkan/vk_descriptors.h"
 #include "gpbr/Graphics/Vulkan/vk_initializers.h"
 
-//> descriptor_bind
 void DescriptorLayoutBuilder::add_binding(uint32_t binding, VkDescriptorType type)
 {
     VkDescriptorSetLayoutBinding new_bind{};
