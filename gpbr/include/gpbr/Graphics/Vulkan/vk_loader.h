@@ -7,7 +7,7 @@
 // forward declaration
 class VulkanEngine;
 
-// An implementation of of an oriented bounding box
+// Bounding box
 struct Bounds
 {
     glm::vec3 origin;
@@ -47,8 +47,7 @@ struct LoadedGLTF : public IRenderable
     std::unordered_map<std::string, AllocatedImage> images;
     std::unordered_map<std::string, std::shared_ptr<GLTFMaterial>> materials;
 
-    // parentless nodes (e.g. root nodes)
-    std::vector<std::shared_ptr<Node>> top_nodes;
+    std::vector<std::shared_ptr<Node>> top_nodes; // aka root nodes
 
     std::vector<VkSampler> samplers;
 

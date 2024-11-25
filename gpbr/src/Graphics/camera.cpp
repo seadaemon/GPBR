@@ -2,7 +2,13 @@
 #include "glm/gtx/transform.hpp"
 #include "glm/gtx/quaternion.hpp"
 
+Camera::Camera(float near /*= 1000.f*/, float far /*= 0.1f*/, float fov /*= 1.22173f*/) : near(near) {}
+
+Camera::~Camera() {}
+
 // Todo: use delta time so updates arent frame-rate dependent
+
+// Updates the rotation matrix, position, forward vector, and the viewing frustum
 void Camera::update()
 {
     glm::quat pitch_rotation = glm::angleAxis(pitch, glm::vec3{1.f, 0.f, 0.f});
@@ -10,8 +16,15 @@ void Camera::update()
     rotation_mat             = glm::toMat4(yaw_rotation) * glm::toMat4(pitch_rotation);
 
     position += glm::vec3(rotation_mat * glm::vec4(velocity * 0.5f, 0.f));
+
+    forward = glm::normalize(glm::vec3(rotation_mat * glm::vec4(0.f, 0.f, -1.f, 1.f)));
+
+    // Update viewing frustum (note that far and near are swapped)
+    frustum.near = Plane{forward, this->far};
+    frustum.far  = Plane{-forward, this->near};
 }
 
+// Review: Understand why/how this math works
 glm::mat4 Camera::get_view_matrix()
 {
     // to create a correct model view, we need to move the world in opposite
@@ -22,6 +35,7 @@ glm::mat4 Camera::get_view_matrix()
     return glm::inverse(camera_translation * rotation_mat);
 }
 
+// Returns a matrix representing the current rotation of the camera.
 glm::mat4 Camera::get_rotation_matrix()
 {
     return rotation_mat;

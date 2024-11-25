@@ -17,6 +17,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <glm/trigonometric.hpp>
 
 struct AllocatedImage
 {
@@ -85,7 +86,7 @@ struct Vertex
     glm::vec4 color;
 };
 
-// holds the resources needed for a mesh
+// Holds the resources needed for a mesh
 struct GPUMeshBuffers
 {
     AllocatedBuffer index_buffer;

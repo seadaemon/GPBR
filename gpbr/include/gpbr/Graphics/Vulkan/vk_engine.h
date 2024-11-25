@@ -152,7 +152,7 @@ class VulkanEngine
     bool _resize_requested{false};
 
     struct SDL_Window* _window{nullptr};
-    std::string _window_title;
+    std::string _window_title{"GPBR"};
     VkExtent2D _window_extent{1700, 900};
 
     // The number of frames elapsed since the start of the program.
@@ -224,13 +224,13 @@ class VulkanEngine
     VkCommandBuffer _imm_command_buffer;
     VkCommandPool _imm_command_pool;
 
-    AllocatedImage _draw_image;
-    AllocatedImage _depth_image;
+    AllocatedImage _draw_image;  // Main draw image
+    AllocatedImage _depth_image; // Main depth image
 
-    AllocatedImage _white_image;
-    AllocatedImage _black_image;
-    AllocatedImage _grey_image;
-    AllocatedImage _error_checkerboard_image;
+    AllocatedImage _white_image;              // 1x1 image.
+    AllocatedImage _black_image;              // 1x1 image.
+    AllocatedImage _grey_image;               // 1x1 image.
+    AllocatedImage _error_checkerboard_image; // A magenta and black checkerboard image.
 
     VkSampler _default_sampler_linear;  // linar filtering (blur)
     VkSampler _default_sampler_nearest; // nearest neighbor filtering
@@ -305,9 +305,10 @@ class VulkanEngine
     // Creates a swapchain with its images and image views.
     // This overwrites the current swapchain.
     void create_swapchain(uint32_t width, uint32_t height);
-    // Initializes the swapchain for the current display.
+    // Initializes the swapchain for the current window.
     void init_swapchain();
     void destroy_swapchain();
+    // Recreates the swapchain to suit the current window dimensions.
     void resize_swapchain();
 
     void init_commands();
@@ -324,6 +325,6 @@ class VulkanEngine
     void init_sync_structures();
 
     void init_imgui();
-
+    // Initializes objects used for debugging.
     void init_default_data();
 };

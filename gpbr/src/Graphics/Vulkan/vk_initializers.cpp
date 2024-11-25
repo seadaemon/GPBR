@@ -136,20 +136,20 @@ VkRenderingAttachmentInfo vkinit::attachment_info(VkImageView view,
                                                   VkClearValue* clear,
                                                   VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
 {
-    VkRenderingAttachmentInfo colorAttachment{};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.pNext = nullptr;
+    VkRenderingAttachmentInfo color_attachment{};
+    color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    color_attachment.pNext = nullptr;
 
-    colorAttachment.imageView   = view;
-    colorAttachment.imageLayout = layout;
-    colorAttachment.loadOp      = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-    colorAttachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.imageView   = view;
+    color_attachment.imageLayout = layout;
+    color_attachment.loadOp      = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    color_attachment.storeOp     = VK_ATTACHMENT_STORE_OP_STORE;
     if (clear)
     {
-        colorAttachment.clearValue = *clear;
+        color_attachment.clearValue = *clear;
     }
 
-    return colorAttachment;
+    return color_attachment;
 }
 
 VkRenderingAttachmentInfo vkinit::depth_attachment_info(
@@ -275,8 +275,10 @@ VkDescriptorBufferInfo vkinit::buffer_info(VkBuffer buffer, VkDeviceSize offset,
     return buffer_info;
 }
 
-//> image_set
-VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent)
+VkImageCreateInfo vkinit::image_create_info(VkFormat format,
+                                            VkImageUsageFlags usage_flags,
+                                            VkExtent3D extent,
+                                            VkSampleCountFlagBits samples /* = VK_SAMPLE_COUNT_1_BIT*/)
 {
     VkImageCreateInfo info = {};
     info.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -291,7 +293,7 @@ VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags u
     info.arrayLayers = 1;
 
     // for MSAA. we will not be using it by default, so default it to 1 sample per pixel.
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
+    info.samples = samples;
 
     // optimal tiling, which means the image is stored on the best gpu format
     info.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -302,7 +304,7 @@ VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags u
 
 VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags)
 {
-    // build a image-view for the depth image to use for rendering
+    // build a image-view for the image to use for rendering
     VkImageViewCreateInfo info = {};
     info.sType                 = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info.pNext                 = nullptr;
@@ -318,7 +320,7 @@ VkImageViewCreateInfo vkinit::imageview_create_info(VkFormat format, VkImage ima
 
     return info;
 }
-//< image_set
+
 VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info()
 {
     VkPipelineLayoutCreateInfo info{};

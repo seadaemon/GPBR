@@ -53,8 +53,13 @@ VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type,
                                              uint32_t binding);
 VkDescriptorBufferInfo buffer_info(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
 
-VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usage_flags, VkExtent3D extent);
+// Provides a configured VkImageCreateInfo struct
+VkImageCreateInfo image_create_info(VkFormat format,
+                                    VkImageUsageFlags usage_flags,
+                                    VkExtent3D extent,
+                                    VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 VkImageViewCreateInfo imageview_create_info(VkFormat format, VkImage image, VkImageAspectFlags aspect_flags);
+
 VkPipelineLayoutCreateInfo pipeline_layout_create_info();
 VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(VkShaderStageFlagBits stage,
                                                                   VkShaderModule shader_module,

@@ -58,28 +58,38 @@ VulkanEngine& VulkanEngine::get()
     return *loaded_engine;
 }
 
+// Helper to determine the maximum sample count of a physical device
+static VkSampleCountFlagBits get_max_sample_count(VkPhysicalDeviceLimits& limits)
+{
+    VkSampleCountFlags counts = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
+    // clang-format off
+    if (counts & VK_SAMPLE_COUNT_64_BIT){ return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT){ return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT){ return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT){ return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT){ return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT){ return VK_SAMPLE_COUNT_2_BIT; }
+    // clang-format on
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 void VulkanEngine::init()
 {
-    /* 1 Ensure this is the only engine running */
     assert(loaded_engine == nullptr);
     loaded_engine = this;
 
-    /* 2 Initialize SDL */
+    /* 1 Initialize SDL & create the SDL window */
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         fmt::println("Could not initialize SDL: {}", SDL_GetError());
         return; // TODO: Improve error handling here...
     }
 
-    /* 2.1 Create the SDL window */
-
-    _window_title = "GPBR";
-
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_RESIZABLE);
 
     _window = SDL_CreateWindow(_window_title.c_str(), _window_extent.width, _window_extent.height, window_flags);
 
-    /* 3 Process each initialization method */
+    /* 2 Call each initialization method */
 
     init_vulkan();
 
@@ -101,40 +111,166 @@ void VulkanEngine::init()
 
     _is_initialized = true;
 
-    /* 4 Initialize the camera */
+    /* 3 Initialize the camera */
 
     _main_camera.velocity = glm::vec3(0.f);
     _main_camera.position = glm::vec3(0.f, 1.76f, 5.f);
     _main_camera.pitch    = 0.f;
     _main_camera.yaw      = 0.f;
-
-    /* 5 Load a scene for debugging */
+    _main_camera.update();
+    /* 4 Load a scene for debugging */
 
     std::string prefix{".\\Assets\\"};
 
     std::unordered_map<std::string, std::string> glTF_map{
-        {"AlphaBlendModeTest",            prefix + "AlphaBlendModeTest.glb"},
-        {             "Basic",                     prefix + "basicmesh.glb"},
-        {               "Cow",                           prefix + "Cow.glb"},
-        {              "Cube",                          prefix + "Cube.glb"},
-        {              "Duck",                          prefix + "Duck.glb"},
-        {            "Dragon",             prefix + "DragonAttenuation.glb"},
-        {           "Dragon2",                       prefix + "Dragon2.glb"},
-        {            "Sphere",                        prefix + "Sphere.glb"},
-        {            "Sponza",                        prefix + "sponza.glb"},
-        {         "Structure",                     prefix + "structure.glb"},
-        {     "Structure Mat",                 prefix + "structure_mat.glb"},
-        {           "Suzanne",                       prefix + "Suzanne.glb"},
-        {    "Deccer Colored",       prefix + "SM_Deccer_Cubes_Colored.glb"},
-        {   "Deccer Textured",      prefix + "SM_Deccer_Cubes_Textured.glb"},
-        {    "Deccer Rotated", prefix + "SM_Deccer_Cubes_With_Rotation.glb"}
+        {"AlphaBlendModeTest",                prefix + "AlphaBlendModeTest.glb"},
+        {             "Basic",                         prefix + "basicmesh.glb"},
+        {               "Cow",                               prefix + "Cow.glb"},
+        {              "Cube",                              prefix + "Cube.glb"},
+        {              "Duck",                              prefix + "Duck.glb"},
+        {            "Dragon",                 prefix + "DragonAttenuation.glb"},
+        {           "Dragon2",                           prefix + "Dragon2.glb"},
+        {            "Sphere",                            prefix + "Sphere.glb"},
+        {            "Sponza",                            prefix + "sponza.glb"},
+        {         "Structure",                         prefix + "structure.glb"},
+        {     "Structure Mat",                     prefix + "structure_mat.glb"},
+        {           "Suzanne",                           prefix + "Suzanne.glb"},
+        {    "Deccer Colored",           prefix + "SM_Deccer_Cubes_Colored.glb"},
+        {   "Deccer Textured",          prefix + "SM_Deccer_Cubes_Textured.glb"},
+        {    "Deccer Rotated",     prefix + "SM_Deccer_Cubes_With_Rotation.glb"}, // One of the cubes is bugged
+        {    "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"}
     };
 
-    std::string gltf_path{glTF_map["Deccer Textured"]};
+    std::string gltf_path{glTF_map["Deccer Complex"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
     _loaded_scenes["debug"] = *gltf_file;
+}
+
+void VulkanEngine::init_vulkan()
+{
+    /* 1 Create handles to the Vulkan library and the debug messenger */
+
+    vkb::InstanceBuilder builder;
+
+    auto inst_ret = builder.set_app_name("GPBR")
+                        .request_validation_layers(use_validation_layers) //
+                        .use_default_debug_messenger()                    //
+                        .require_api_version(1, 3, 0)                     //
+                        .build();
+
+    vkb::Instance vkb_inst = inst_ret.value();
+    _instance              = vkb_inst.instance;
+    _debug_messenger       = vkb_inst.debug_messenger;
+
+    /* 2 Create a Vulkan rendering surface */
+
+    SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
+
+    /* 3 Specify features and extensions required of the physical device  */
+
+    VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features13.dynamicRendering = true;
+    features13.synchronization2 = true;
+    features13.maintenance4     = true;
+
+    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    features12.bufferDeviceAddress = true;
+    features12.descriptorIndexing  = true;
+    features12.hostQueryReset      = true;
+
+    // 1.0 features
+    VkPhysicalDeviceFeatures features{};
+    features.fillModeNonSolid  = true;
+    features.sampleRateShading = true;
+    features.geometryShader    = true;
+
+    vkb::PhysicalDeviceSelector selector{vkb_inst};
+
+    selector.add_required_extension("VK_KHR_dynamic_rendering");
+
+    selector.add_required_extension("VK_EXT_extended_dynamic_state");
+
+    /* 3.1 Create handles for a physical device and a logical device */
+
+    vkb::PhysicalDevice physical_device = selector                                  //
+                                              .set_minimum_version(1, 3)            //
+                                              .set_required_features_13(features13) //
+                                              .set_required_features_12(features12) //
+                                              .set_required_features(features)      //
+                                              .set_surface(_surface)                //
+                                              .select()                             //
+                                              .value();
+
+    vkb::DeviceBuilder device_builder{physical_device};
+
+    vkb::Device vkb_device = device_builder.build().value();
+
+    _device     = vkb_device.device;
+    _chosen_GPU = physical_device.physical_device;
+
+    fmt::println("{}", physical_device.name);
+
+    /* 3.2 Determine the maximum number of samples supported by this device */
+
+    _msaa_samples = get_max_sample_count(physical_device.properties.limits);
+
+    fmt::println("MSAA Sample Limit: {}\n", string_VkSampleCountFlagBits(_msaa_samples));
+
+    /* 4 Use Volk to dynamically load function entrypoints */
+
+    volkInitialize();
+    volkLoadInstance(_instance);
+    volkLoadDevice(_device);
+
+    /* 5 Obtain a graphics queue and its corresponding family */
+
+    _graphics_queue        = vkb_device.get_queue(vkb::QueueType::graphics).value();
+    _graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
+
+    /* 6 Bind Vulkan functions for VMA */
+
+    // TODO: Find a more elegant solution
+    VmaVulkanFunctions vma_funcs                      = {};
+    vma_funcs.vkGetInstanceProcAddr                   = vkGetInstanceProcAddr;
+    vma_funcs.vkGetDeviceProcAddr                     = vkGetDeviceProcAddr;
+    vma_funcs.vkGetPhysicalDeviceProperties           = vkGetPhysicalDeviceProperties;
+    vma_funcs.vkGetPhysicalDeviceMemoryProperties     = vkGetPhysicalDeviceMemoryProperties;
+    vma_funcs.vkAllocateMemory                        = vkAllocateMemory;
+    vma_funcs.vkFreeMemory                            = vkFreeMemory;
+    vma_funcs.vkMapMemory                             = vkMapMemory;
+    vma_funcs.vkUnmapMemory                           = vkUnmapMemory;
+    vma_funcs.vkFlushMappedMemoryRanges               = vkFlushMappedMemoryRanges;
+    vma_funcs.vkInvalidateMappedMemoryRanges          = vkInvalidateMappedMemoryRanges;
+    vma_funcs.vkBindBufferMemory                      = vkBindBufferMemory;
+    vma_funcs.vkBindImageMemory                       = vkBindImageMemory;
+    vma_funcs.vkGetBufferMemoryRequirements           = vkGetBufferMemoryRequirements;
+    vma_funcs.vkGetImageMemoryRequirements            = vkGetImageMemoryRequirements;
+    vma_funcs.vkCreateBuffer                          = vkCreateBuffer;
+    vma_funcs.vkDestroyBuffer                         = vkDestroyBuffer;
+    vma_funcs.vkCreateImage                           = vkCreateImage;
+    vma_funcs.vkDestroyImage                          = vkDestroyImage;
+    vma_funcs.vkCmdCopyBuffer                         = vkCmdCopyBuffer;
+    vma_funcs.vkGetBufferMemoryRequirements2KHR       = vkGetBufferMemoryRequirements2;
+    vma_funcs.vkGetImageMemoryRequirements2KHR        = vkGetImageMemoryRequirements2;
+    vma_funcs.vkBindBufferMemory2KHR                  = vkBindBufferMemory2;
+    vma_funcs.vkBindImageMemory2KHR                   = vkBindImageMemory2;
+    vma_funcs.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2;
+    vma_funcs.vkGetDeviceBufferMemoryRequirements     = vkGetDeviceBufferMemoryRequirements;
+    vma_funcs.vkGetDeviceImageMemoryRequirements      = vkGetDeviceImageMemoryRequirements;
+
+    /* 6.1 Initialize VMA */
+
+    VmaAllocatorCreateInfo allocator_info = {};
+    allocator_info.pVulkanFunctions       = &vma_funcs;
+    allocator_info.physicalDevice         = _chosen_GPU;
+    allocator_info.device                 = _device;
+    allocator_info.instance               = _instance;
+    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vmaCreateAllocator(&allocator_info, &_allocator);
+
+    // Destructory for _allocator is explicitly called in cleanup()
 }
 
 void VulkanEngine::init_default_data()
@@ -377,6 +513,31 @@ bool is_visible(const RenderObject& obj, const glm::mat4& viewproj)
     }
 }
 
+bool in_frustum(const RenderObject& obj, const glm::mat4& viewproj, const Camera& camera)
+{
+    // get positions in clip space
+    glm::vec4 cam_pos = viewproj * glm::vec4(camera.position, 1.f);
+    glm::vec4 box_pos = viewproj * obj.transform * glm::vec4(obj.bounds.origin, 1.f);
+
+    // vector from camera to box
+    glm::vec4 cam_to_box = box_pos - cam_pos;
+
+    glm::vec4 cam_forward = viewproj * glm::vec4(camera.forward, 0.f);
+
+    float dot = glm::dot(cam_forward, cam_to_box);
+
+    float dist = glm::distance(box_pos, cam_pos);
+
+    if (dot < 0.f)
+    {
+        return false;
+    }
+
+    // fmt::println("{},{},{}", obj.bounds.origin.x, obj.bounds.origin.y, obj.bounds.origin.z);
+
+    return true;
+}
+
 void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 {
     std::vector<uint32_t> opaque_draws;
@@ -384,13 +545,13 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
     for (uint32_t i = 0; i < _main_draw_context.opaque_surfaces.size(); i++)
     {
-        /*
-        if (is_visible(_main_draw_context.opaque_surfaces[i], _scene_data.view_proj))
+        //*
+        if (in_frustum(_main_draw_context.opaque_surfaces[i], _scene_data.view_proj, _main_camera))
         {
             opaque_draws.push_back(i);
         }
-       */
-        opaque_draws.push_back(i);
+        //*/
+        // opaque_draws.push_back(i);
     }
 
     // sort the opaque surfaces by material and mesh
@@ -544,9 +705,9 @@ void VulkanEngine::update_scene()
 {
     auto start = std::chrono::system_clock::now();
 
-    glm::mat4 view = _main_camera.get_view_matrix();
-    glm::mat4 projection =
-        glm::perspective(glm::radians(70.0f), (float)_draw_extent.width / (float)_draw_extent.height, 1000.f, 0.1f);
+    glm::mat4 view       = _main_camera.get_view_matrix();
+    glm::mat4 projection = glm::perspective(
+        _main_camera.fov, (float)_draw_extent.width / (float)_draw_extent.height, _main_camera.near, _main_camera.far);
 
     // invert the Y direction on projection matrix so that we are more similar
     // to opengl and gltf axis
@@ -559,7 +720,7 @@ void VulkanEngine::update_scene()
     // parameters for a directional light
     _scene_data.ambient_color      = glm::vec4(.1f);
     _scene_data.sunlight_color     = glm::vec4(1.f, 1.f, 1.f, 1.0f);
-    _scene_data.sunlight_direction = glm::vec4(0.5f, 1.f, 0.5f, 1.f);
+    _scene_data.sunlight_direction = glm::vec4(1.5f, 1.f, 0.5f, 1.f);
 
     // glm::mat4 rot = glm::rotate(glm::mat4{1.f}, glm::radians(.1f * _frame_number), glm::vec3(0, 1, 0));
 
@@ -763,7 +924,7 @@ void VulkanEngine::run()
             {
                 if (e.key.key == SDLK_SPACE)
                 {
-                    fmt::print("[Space]");
+                    fmt::print("Camera Forward [{}, {}, {}]", 0, 0, 0);
                 }
             }
             //<== INPUT EVENTS
@@ -798,6 +959,13 @@ void VulkanEngine::run()
         ImGui::Text("draws %i", stats.drawcall_count);
         ImGui::End();
 
+        ImGui::Begin("Camera");
+        ImGui::SetWindowSize(ImVec2(200, 150));
+        ImGui::SetWindowPos(ImVec2(200, 0));
+        ImGui::Text("Pos: %.2f, %.2f, %.2f", _main_camera.position.x, _main_camera.position.y, _main_camera.position.z);
+        ImGui::Text("For: %.2f, %.2f, %.2f", _main_camera.forward.x, _main_camera.forward.y, _main_camera.forward.z);
+        ImGui::End();
+
         if (ImGui::Begin("background"))
         {
             ImGui::SliderFloat("Render Scale", &_render_scale, 0.3f, 1.0f);
@@ -828,147 +996,6 @@ void VulkanEngine::run()
     }
 }
 
-// Helper to determine the maximum sample count of a physical device
-static VkSampleCountFlagBits get_max_sample_count(VkPhysicalDeviceLimits& limits)
-{
-    VkSampleCountFlags counts = limits.framebufferColorSampleCounts & limits.framebufferDepthSampleCounts;
-    // clang-format off
-    if (counts & VK_SAMPLE_COUNT_64_BIT){ return VK_SAMPLE_COUNT_64_BIT; }
-    if (counts & VK_SAMPLE_COUNT_32_BIT){ return VK_SAMPLE_COUNT_32_BIT; }
-    if (counts & VK_SAMPLE_COUNT_16_BIT){ return VK_SAMPLE_COUNT_16_BIT; }
-    if (counts & VK_SAMPLE_COUNT_8_BIT){ return VK_SAMPLE_COUNT_8_BIT; }
-    if (counts & VK_SAMPLE_COUNT_4_BIT){ return VK_SAMPLE_COUNT_4_BIT; }
-    if (counts & VK_SAMPLE_COUNT_2_BIT){ return VK_SAMPLE_COUNT_2_BIT; }
-    // clang-format on
-    return VK_SAMPLE_COUNT_1_BIT;
-}
-
-void VulkanEngine::init_vulkan()
-{
-    /* 1 Create handles to the Vulkan library and the debug messenger */
-
-    vkb::InstanceBuilder builder;
-
-    auto inst_ret = builder.set_app_name("GPBR")
-                        .request_validation_layers(use_validation_layers) //
-                        .use_default_debug_messenger()                    //
-                        .require_api_version(1, 3, 0)                     //
-                        .build();
-
-    vkb::Instance vkb_inst = inst_ret.value();
-    _instance              = vkb_inst.instance;
-    _debug_messenger       = vkb_inst.debug_messenger;
-
-    /* 2 Create a Vulkan rendering surface */
-
-    SDL_Vulkan_CreateSurface(_window, _instance, nullptr, &_surface);
-
-    /* 3 Specify features and extensions required of the physical device  */
-
-    // Vulkan 1.3 features
-    VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    features13.dynamicRendering = true;
-    features13.synchronization2 = true;
-    features13.maintenance4     = true;
-
-    // Vulkan 1.2 features
-    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-    features12.bufferDeviceAddress = true;
-    features12.descriptorIndexing  = true;
-    features12.hostQueryReset      = true;
-
-    // Vulkan 1.0 features
-    VkPhysicalDeviceFeatures features{};
-    features.fillModeNonSolid  = true;
-    features.sampleRateShading = true;
-
-    vkb::PhysicalDeviceSelector selector{vkb_inst};
-
-    selector.add_required_extension("VK_KHR_dynamic_rendering");
-
-    selector.add_required_extension("VK_EXT_extended_dynamic_state");
-
-    /* 3.1 Create handles for a physical device and a logical device */
-
-    vkb::PhysicalDevice physical_device = selector                                  //
-                                              .set_minimum_version(1, 3)            //
-                                              .set_required_features_13(features13) //
-                                              .set_required_features_12(features12) //
-                                              .set_required_features(features)      //
-                                              .set_surface(_surface)                //
-                                              .select()                             //
-                                              .value();
-
-    vkb::DeviceBuilder device_builder{physical_device};
-
-    vkb::Device vkb_device = device_builder.build().value();
-
-    _device     = vkb_device.device;
-    _chosen_GPU = physical_device.physical_device;
-
-    fmt::println("{}", physical_device.name);
-
-    /* 3.2 Determine the maximum number of samples supported by this device */
-
-    _msaa_samples = get_max_sample_count(physical_device.properties.limits);
-
-    fmt::println("MSAA Sample Limit: {}\n", string_VkSampleCountFlagBits(_msaa_samples));
-
-    /* 4 Use Volk to dynamically load function entrypoints */
-
-    volkInitialize();
-    volkLoadInstance(_instance);
-    volkLoadDevice(_device);
-
-    /* 5 Obtain a graphics queue and its corresponding family */
-
-    _graphics_queue        = vkb_device.get_queue(vkb::QueueType::graphics).value();
-    _graphics_queue_family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
-
-    /* 6 Bind Vulkan functions for VMA */
-
-    // TODO: Find a more elegant solution
-    VmaVulkanFunctions vma_funcs                      = {};
-    vma_funcs.vkGetInstanceProcAddr                   = vkGetInstanceProcAddr;
-    vma_funcs.vkGetDeviceProcAddr                     = vkGetDeviceProcAddr;
-    vma_funcs.vkGetPhysicalDeviceProperties           = vkGetPhysicalDeviceProperties;
-    vma_funcs.vkGetPhysicalDeviceMemoryProperties     = vkGetPhysicalDeviceMemoryProperties;
-    vma_funcs.vkAllocateMemory                        = vkAllocateMemory;
-    vma_funcs.vkFreeMemory                            = vkFreeMemory;
-    vma_funcs.vkMapMemory                             = vkMapMemory;
-    vma_funcs.vkUnmapMemory                           = vkUnmapMemory;
-    vma_funcs.vkFlushMappedMemoryRanges               = vkFlushMappedMemoryRanges;
-    vma_funcs.vkInvalidateMappedMemoryRanges          = vkInvalidateMappedMemoryRanges;
-    vma_funcs.vkBindBufferMemory                      = vkBindBufferMemory;
-    vma_funcs.vkBindImageMemory                       = vkBindImageMemory;
-    vma_funcs.vkGetBufferMemoryRequirements           = vkGetBufferMemoryRequirements;
-    vma_funcs.vkGetImageMemoryRequirements            = vkGetImageMemoryRequirements;
-    vma_funcs.vkCreateBuffer                          = vkCreateBuffer;
-    vma_funcs.vkDestroyBuffer                         = vkDestroyBuffer;
-    vma_funcs.vkCreateImage                           = vkCreateImage;
-    vma_funcs.vkDestroyImage                          = vkDestroyImage;
-    vma_funcs.vkCmdCopyBuffer                         = vkCmdCopyBuffer;
-    vma_funcs.vkGetBufferMemoryRequirements2KHR       = vkGetBufferMemoryRequirements2;
-    vma_funcs.vkGetImageMemoryRequirements2KHR        = vkGetImageMemoryRequirements2;
-    vma_funcs.vkBindBufferMemory2KHR                  = vkBindBufferMemory2;
-    vma_funcs.vkBindImageMemory2KHR                   = vkBindImageMemory2;
-    vma_funcs.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2;
-    vma_funcs.vkGetDeviceBufferMemoryRequirements     = vkGetDeviceBufferMemoryRequirements;
-    vma_funcs.vkGetDeviceImageMemoryRequirements      = vkGetDeviceImageMemoryRequirements;
-
-    /* 6.1 Initialize VMA */
-
-    VmaAllocatorCreateInfo allocator_info = {};
-    allocator_info.pVulkanFunctions       = &vma_funcs;
-    allocator_info.physicalDevice         = _chosen_GPU;
-    allocator_info.device                 = _device;
-    allocator_info.instance               = _instance;
-    allocator_info.flags                  = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    vmaCreateAllocator(&allocator_info, &_allocator);
-
-    // Destructory for _allocator is explicitly called in cleanup()
-}
-
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 {
     vkb::SwapchainBuilder swapchain_builder{_chosen_GPU, _device, _surface};
@@ -994,22 +1021,13 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 
 void VulkanEngine::init_swapchain()
 {
-    /* 1 Create a new swapchain */
-
     create_swapchain(_window_extent.width, _window_extent.height);
 
-    /* 2 Set extent and format of the _draw_image */
+    /* 1 Set extent and format of the _draw_image (also for _depth_image) */
 
-    VkExtent3D draw_image_extent = {
-        2560, //
-        1600, //
-        1     //
-    };        // TODO: make this detect the current monitor resolution
+    VkExtent3D draw_image_extent = {2560, 1600, 1};
 
-    _draw_image.image_format = VK_FORMAT_R16G16B16A16_SFLOAT; // hardcoded to 32 bit signed float
-    _draw_image.image_extent = draw_image_extent;
-
-    /* 2.1 Define usage flags for the _draw_image */
+    /* 1.1 Define usages for the _draw_image */
 
     VkImageUsageFlags draw_image_usages{};
     draw_image_usages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -1017,49 +1035,14 @@ void VulkanEngine::init_swapchain()
     draw_image_usages |= VK_IMAGE_USAGE_STORAGE_BIT;
     draw_image_usages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    /* 2.2 Define creation structs for _draw_image */
+    /* 2 Initialize draw image and depth image */
 
-    VkImageCreateInfo draw_image_info =
-        vkinit::image_create_info(_draw_image.image_format, draw_image_usages, draw_image_extent);
+    _draw_image = create_image(draw_image_extent, VK_FORMAT_R16G16B16A16_SFLOAT, draw_image_usages, true, false);
 
-    // Allocate it from gpu local memory
-    VmaAllocationCreateInfo draw_image_alloc_info = {};
-    draw_image_alloc_info.usage                   = VMA_MEMORY_USAGE_GPU_ONLY;
-    draw_image_alloc_info.requiredFlags           = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    _depth_image =
+        create_image(draw_image_extent, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, true, false);
 
-    /* 2.3 Initialize _draw_image */
-
-    vmaCreateImage(
-        _allocator, &draw_image_info, &draw_image_alloc_info, &_draw_image.image, &_draw_image.allocation, nullptr);
-
-    /* 2.4 Build an image-view from the _draw_image */
-
-    VkImageViewCreateInfo rview_info =
-        vkinit::imageview_create_info(_draw_image.image_format, _draw_image.image, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_draw_image.image_view));
-
-    /* 3 Initialize the _depth_image */
-
-    _depth_image.image_format = VK_FORMAT_D32_SFLOAT;
-    _depth_image.image_extent = draw_image_extent;
-    VkImageUsageFlags depth_image_usages{};
-    depth_image_usages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-    VkImageCreateInfo dimg_info =
-        vkinit::image_create_info(_depth_image.image_format, depth_image_usages, draw_image_extent);
-
-    // allocate and create the image
-    vmaCreateImage(
-        _allocator, &dimg_info, &draw_image_alloc_info, &_depth_image.image, &_depth_image.allocation, nullptr);
-
-    // build a image-view for the draw image to use for rendering
-    VkImageViewCreateInfo dview_info =
-        vkinit::imageview_create_info(_depth_image.image_format, _depth_image.image, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depth_image.image_view));
-
-    /* 4 Queue deletion functions for the draw image and depth image */
+    /* 5 Queue deletion functions for the draw image and depth image */
 
     _main_deletion_queue.push_function(
         [=]()
@@ -1234,7 +1217,7 @@ void VulkanEngine::init_imgui()
 
     ImGui_ImplVulkan_CreateFontsTexture();
 
-    util::set_imgui_theme(ImGui::GetStyle(), "gpbr");
+    util::set_imgui_theme(ImGui::GetStyle(), "enemymouse");
 
     // add the destroy the imgui created structures
     _main_deletion_queue.push_function(
