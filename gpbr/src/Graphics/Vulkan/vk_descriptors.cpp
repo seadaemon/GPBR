@@ -117,8 +117,7 @@ void DescriptorWriter::write_buffer(int binding, VkBuffer buffer, size_t size, s
 
     writes.push_back(write);
 }
-//< write_buffer
-//> writer_end
+
 void DescriptorWriter::clear()
 {
     image_infos.clear();
@@ -179,9 +178,7 @@ void DescriptorAllocatorGrowable::destroy_pools(VkDevice device)
     }
     full_pools.clear();
 }
-//< growpool_2
 
-//> growpool_1
 VkDescriptorPool DescriptorAllocatorGrowable::get_pool(VkDevice device)
 {
     VkDescriptorPool new_pool;

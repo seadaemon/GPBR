@@ -194,7 +194,7 @@ class VulkanEngine
     // 1 second delay between updates
     float _FPS_delay{1.0f};
 
-    // Allocates memory for descriptors
+    // Allocates memory for all descriptors.
     DescriptorAllocatorGrowable global_descriptor_allocator;
 
     VkPipeline _gradient_pipeline;              // Intended for the gradient compute shaders.

@@ -214,7 +214,8 @@ void VulkanEngine::init_vulkan()
 
     _msaa_samples = get_max_sample_count(physical_device.properties.limits);
 
-    fmt::println("MSAA Sample Limit: {}\n", string_VkSampleCountFlagBits(_msaa_samples));
+    fmt::println("MSAA Sample Limit: {}", string_VkSampleCountFlagBits(_msaa_samples));
+    fmt::println("Maximum No. Bound Descriptor Sets: {}\n", physical_device.properties.limits.maxBoundDescriptorSets);
 
     /* 4 Use Volk to dynamically load function entrypoints */
 
