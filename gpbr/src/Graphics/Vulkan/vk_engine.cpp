@@ -97,8 +97,6 @@ void VulkanEngine::init()
 
     init_commands();
 
-    init_queries();
-
     init_sync_structures();
 
     init_descriptors();
@@ -111,13 +109,13 @@ void VulkanEngine::init()
 
     _is_initialized = true;
 
-    /* 3 Initialize the camera */
+    /* 3 Initialize the camera and debug light */
 
     _main_camera.velocity = glm::vec3(0.f);
     _main_camera.position = glm::vec3(0.f, 1.76f, 5.f);
     _main_camera.pitch    = 0.f;
     _main_camera.yaw      = 0.f;
-    _main_camera.update();
+
     /* 4 Load a scene for debugging */
 
     std::string prefix{".\\Assets\\"};
@@ -470,6 +468,7 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 }
 
+// Note: from vkguide.dev tutorial; deprecated
 bool is_visible(const RenderObject& obj, const glm::mat4& viewproj)
 {
     std::array<glm::vec3, 8> corners{
@@ -513,28 +512,65 @@ bool is_visible(const RenderObject& obj, const glm::mat4& viewproj)
     }
 }
 
+// TODO: Improve this so that objects near the edge of the screen are not pre-maturely truncated
 bool in_frustum(const RenderObject& obj, const glm::mat4& viewproj, const Camera& camera)
 {
-    // get positions in clip space
-    glm::vec4 cam_pos = viewproj * glm::vec4(camera.position, 1.f);
-    glm::vec4 box_pos = viewproj * obj.transform * glm::vec4(obj.bounds.origin, 1.f);
+    Frustum frust  = camera.frustum;
+    Plane planes[] = {frust.near, frust.far, frust.right, frust.left, frust.top, frust.bottom};
 
-    // vector from camera to box
-    glm::vec4 cam_to_box = box_pos - cam_pos;
+    std::array<glm::vec3, 8> corners{
+        glm::vec3{ 1,  1,  1},
+        glm::vec3{ 1,  1, -1},
+        glm::vec3{ 1, -1,  1},
+        glm::vec3{ 1, -1, -1},
+        glm::vec3{-1,  1,  1},
+        glm::vec3{-1,  1, -1},
+        glm::vec3{-1, -1,  1},
+        glm::vec3{-1, -1, -1},
+    };
 
-    glm::vec4 cam_forward = viewproj * glm::vec4(camera.forward, 0.f);
+    glm::mat4 clip_mat = viewproj * obj.transform;
 
-    float dot = glm::dot(cam_forward, cam_to_box);
+    // clipped corners
+    std::array<glm::vec4, 8> cv{
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[0] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[1] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[2] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[3] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[4] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[5] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[6] * obj.bounds.extents), 1.f),
+        clip_mat * glm::vec4(obj.bounds.origin - camera.position + (corners[7] * obj.bounds.extents), 1.f),
+    };
 
-    float dist = glm::distance(box_pos, cam_pos);
-
-    if (dot < 0.f)
+    // Perspective divide
+    for (int i = 0; i < 8; i++)
     {
-        return false;
+        cv[i].x = cv[i].x / cv[i].w;
+        cv[i].y = cv[i].y / cv[i].w;
+        cv[i].z = cv[i].z / cv[i].w;
     }
 
-    // fmt::println("{},{},{}", obj.bounds.origin.x, obj.bounds.origin.y, obj.bounds.origin.z);
+    // clang-format off
+    for (int i = 0; i < 6; i++)
+    {
+        int out = 0;
 
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[0]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[1]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[2]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[3]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[4]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[5]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[6]) + planes[i].distance) < 0.0f) ?1:0;
+        out += ((glm::dot(glm::vec4(planes[i].normal,1.f), cv[7]) + planes[i].distance) < 0.0f) ?1:0;
+
+        if (out == 8)
+        {
+            return false;
+        }
+    }
+    // clang-format on
     return true;
 }
 
@@ -685,7 +721,6 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     _main_draw_context.opaque_surfaces.clear();
     _main_draw_context.transparent_surfaces.clear();
     _main_draw_context.mask_surfaces.clear();
-    _main_camera.update();
 }
 
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
@@ -705,9 +740,17 @@ void VulkanEngine::update_scene()
 {
     auto start = std::chrono::system_clock::now();
 
+    _light_data.position  = glm::vec3(0.f, 20.f, 0.f);
+    _light_data.color     = glm::vec3(1.f);
+    _light_data.intensity = 1.f;
+    _light_data.type      = (uint32_t)LightType::Point;
+
+    _main_camera.aspect = (float)_draw_extent.width / (float)_draw_extent.height;
+    _main_camera.update();
+
     glm::mat4 view       = _main_camera.get_view_matrix();
     glm::mat4 projection = glm::perspective(
-        _main_camera.fov, (float)_draw_extent.width / (float)_draw_extent.height, _main_camera.near, _main_camera.far);
+        _main_camera.fovy, (float)_draw_extent.width / (float)_draw_extent.height, _main_camera.far, _main_camera.near);
 
     // invert the Y direction on projection matrix so that we are more similar
     // to opengl and gltf axis
@@ -776,10 +819,6 @@ void VulkanEngine::draw()
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
 
-    // reset and start a new timestamp
-    vkCmdResetQueryPool(cmd, _query_pool_timestamps, 0, static_cast<uint32_t>(_timestamps.size()));
-    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, _query_pool_timestamps, 0);
-
     // transition the main draw image into general layout so it can be written to
     vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     vkutil::transition_image(
@@ -815,8 +854,6 @@ void VulkanEngine::draw()
                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, _query_pool_timestamps, 1);
-
     // finalize the command buffer (we can no longer add commands, but it can now be executed)
     VK_CHECK(vkEndCommandBuffer(cmd));
 
@@ -838,18 +875,6 @@ void VulkanEngine::draw()
     //  _renderFence will now block until the graphic commands finish execution
 
     VK_CHECK(vkQueueSubmit2(_graphics_queue, 1, &submit, get_current_frame()._render_fence));
-
-    // get time stamp results
-    uint32_t count = _timestamps.size();
-
-    vkGetQueryPoolResults(_device, //
-                          _query_pool_timestamps,
-                          0,
-                          count,
-                          _timestamps.size() * sizeof(uint64_t),
-                          _timestamps.data(),
-                          sizeof(uint64_t),
-                          VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
     // prepare present
     // this will put the image we just rendered to into the visible window.
@@ -964,6 +989,8 @@ void VulkanEngine::run()
         ImGui::SetWindowPos(ImVec2(200, 0));
         ImGui::Text("Pos: %.2f, %.2f, %.2f", _main_camera.position.x, _main_camera.position.y, _main_camera.position.z);
         ImGui::Text("For: %.2f, %.2f, %.2f", _main_camera.forward.x, _main_camera.forward.y, _main_camera.forward.z);
+        ImGui::Text("Rig: %.2f, %.2f, %.2f", _main_camera.right.x, _main_camera.right.y, _main_camera.right.z);
+        ImGui::Text("Up : %.2f, %.2f, %.2f", _main_camera.up.x, _main_camera.up.y, _main_camera.up.z);
         ImGui::End();
 
         if (ImGui::Begin("background"))
@@ -1085,25 +1112,6 @@ void VulkanEngine::init_commands()
     VK_CHECK(vkAllocateCommandBuffers(_device, &cmd_alloc_info, &_imm_command_buffer));
 
     _main_deletion_queue.push_function([=]() { vkDestroyCommandPool(_device, _imm_command_pool, nullptr); });
-}
-
-void VulkanEngine::init_queries()
-{
-    // get the timestamp period for the selected GPU
-    VkPhysicalDeviceProperties physical_device_properties{};
-    vkGetPhysicalDeviceProperties(_chosen_GPU, &physical_device_properties);
-    VkPhysicalDeviceLimits device_limits = physical_device_properties.limits;
-    _timestamp_period                    = device_limits.timestampPeriod;
-
-    // 2 time points for 1 render pass
-    _timestamps.resize(2);
-
-    // create timestamp query pool
-    VkQueryPoolCreateInfo query_pool_info =
-        vkinit::query_pool_create_info(VK_QUERY_TYPE_TIMESTAMP, static_cast<uint32_t>(_timestamps.size()));
-    VK_CHECK(vkCreateQueryPool(_device, &query_pool_info, nullptr, &_query_pool_timestamps));
-
-    _main_deletion_queue.push_function([=]() { vkDestroyQueryPool(_device, _query_pool_timestamps, nullptr); });
 }
 
 void VulkanEngine::init_sync_structures()

@@ -8,6 +8,7 @@
 #include "vk_descriptors.h"
 #include "vk_loader.h"
 #include "../camera.h"
+#include "../light.h"
 
 // A deque that stores function callbacks.
 // Executes in first-in-last-out order.
@@ -186,11 +187,6 @@ class VulkanEngine
     // Do not exeed 1.0f.
     float _render_scale{1.0f};
 
-    // Query pool for time stamps to calculate draw time
-    VkQueryPool _query_pool_timestamps = VK_NULL_HANDLE;
-    std::vector<uint64_t> _timestamps;
-    float _timestamp_period = 0; // obtained from the GPU
-
     // time spent on a single frame (not just draw time)
     float _frame_time{0.0f};
     // rolling average Frames Per Second
@@ -246,6 +242,7 @@ class VulkanEngine
     std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> _loaded_scenes;
 
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
+    VkDescriptorSetLayout _light_data_descriptor_layout;
     // VkDescriptorSetLayout _gltf_mat_descriptor_layout;
 
     std::vector<ComputeEffect> background_effects;
@@ -253,6 +250,9 @@ class VulkanEngine
 
     // A first-person camera.
     Camera _main_camera;
+
+    // A point light.
+    GPULightData _light_data;
 
     // Initializes structures and objects required to run the engine.
     void init();
@@ -312,8 +312,6 @@ class VulkanEngine
     void resize_swapchain();
 
     void init_commands();
-
-    void init_queries();
 
     void init_pipelines();
     void init_background_pipelines();

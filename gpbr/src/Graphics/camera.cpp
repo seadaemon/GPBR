@@ -2,37 +2,60 @@
 #include "glm/gtx/transform.hpp"
 #include "glm/gtx/quaternion.hpp"
 
-Camera::Camera(float near /*= 1000.f*/, float far /*= 0.1f*/, float fov /*= 1.22173f*/) : near(near) {}
+Camera::Camera(float near /*= 0.1f*/, float far /*= 1000.f*/, float fovy /*= 1.22173f*/)
+    : near(near), far(far), fovy(fovy)
+{
+}
 
 Camera::~Camera() {}
 
 // Todo: use delta time so updates arent frame-rate dependent
 
-// Updates the rotation matrix, position, forward vector, and the viewing frustum
 void Camera::update()
 {
     glm::quat pitch_rotation = glm::angleAxis(pitch, glm::vec3{1.f, 0.f, 0.f});
     glm::quat yaw_rotation   = glm::angleAxis(yaw, glm::vec3{0.f, -1.f, 0.f});
     rotation_mat             = glm::toMat4(yaw_rotation) * glm::toMat4(pitch_rotation);
 
+    // position of the camera in world-space coordinates
     position += glm::vec3(rotation_mat * glm::vec4(velocity * 0.5f, 0.f));
 
-    forward = glm::normalize(glm::vec3(rotation_mat * glm::vec4(0.f, 0.f, -1.f, 1.f)));
+    glm::mat4 translation_mat = glm::translate(glm::mat4{1.f}, position);
+
+    view_mat = get_view_matrix();
+
+    forward = -glm::normalize(glm::vec3(view_mat[0][2], view_mat[1][2], view_mat[2][2]));
+
+    right = glm::normalize(glm::vec3(view_mat[0][0], view_mat[1][0], view_mat[2][0]));
+
+    up = glm::normalize(glm::vec3(view_mat[0][1], view_mat[1][1], view_mat[2][1]));
 
     // Update viewing frustum (note that far and near are swapped)
-    frustum.near = Plane{forward, this->far};
-    frustum.far  = Plane{-forward, this->near};
+    // All normals of the frustum are facing inwards
+
+    // half-lengths of the vertical and horizontal sides of the far-plane
+    const float half_v_side = far * glm::tan(fovy * 0.5f);
+    const float half_h_side = half_v_side * aspect;
+
+    // frustum.face = {normal, distance}
+    frustum.near   = {forward, near};
+    frustum.far    = {-forward, far};
+    frustum.right  = {-glm::normalize(glm::cross((far * forward) + (half_h_side * right), up)), 0};
+    frustum.left   = {-glm::normalize(glm::cross((far * forward) - (half_h_side * right), up)), 0};
+    frustum.top    = {-glm::normalize(glm::cross((far * forward) + (half_v_side * up), right)), 0};
+    frustum.bottom = {-glm::normalize(glm::cross((far * forward) - (half_v_side * up), right)), 0};
 }
 
-// Review: Understand why/how this math works
+// Returns a view-matrix calculated from the camera's transformation matrix.
 glm::mat4 Camera::get_view_matrix()
 {
-    // to create a correct model view, we need to move the world in opposite
-    // direction to the camera
-    //  so we will create the camera model matrix and invert
-    glm::mat4 camera_translation = glm::translate(glm::mat4(1.f), position);
+    // The transformation matrix is the product of the Translation, Rotation, and Scalar matrices (TRS)
 
-    return glm::inverse(camera_translation * rotation_mat);
+    // The view-matrix is the inverse of this matrix, because the world moves inversely with respect to the camera
+
+    glm::mat4 translation_mat = glm::translate(glm::mat4(1.f), position);
+
+    return glm::inverse(translation_mat * rotation_mat);
 }
 
 // Returns a matrix representing the current rotation of the camera.

@@ -8,6 +8,7 @@ add_executable(gpbr
     Graphics/Vulkan/vk_loader.cpp
 
     Graphics/camera.cpp
+    Graphics/light.cpp
 
     src/Util/imgui_util.cpp
 )

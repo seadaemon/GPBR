@@ -35,6 +35,7 @@ struct AllocatedBuffer
     VmaAllocationInfo info;
 };
 
+// Unused?
 struct GPUGLTFMaterial
 {
     glm::vec4 color_factors;
