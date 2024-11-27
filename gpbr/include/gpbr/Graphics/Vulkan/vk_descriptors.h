@@ -12,7 +12,7 @@ struct DescriptorLayoutBuilder
 {
     // List of descriptor set layout bindings to be used when building a descriptor set layout.
     std::vector<VkDescriptorSetLayoutBinding> bindings;
-    // Creates a VKDescriptorSetLayoutBinding with the given type and binding number.
+    // Creates a VKDescriptorSetLayoutBinding with the given type and binding number and adds it to the list.
     void add_binding(uint32_t binding, VkDescriptorType type);
     // Clears all bindings from the builder.
     void clear();

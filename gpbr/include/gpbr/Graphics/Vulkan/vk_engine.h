@@ -80,7 +80,12 @@ struct GLTFMetallic_Roughness
     {
         glm::vec4 color_factors;
         glm::vec4 metal_rough_factors;
-        glm::vec4 extra[14]; // padding
+        uint32_t color_tex_ID;
+        uint32_t metal_rough_tex_ID;
+        // padding
+        uint32_t pad1;
+        uint32_t pad2;
+        glm::vec4 extra[13];
     };
 
     struct MaterialResources
@@ -143,21 +148,38 @@ struct MeshNode : public Node
     virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 };
 
+// The index of a given texture.
+struct TextureID
+{
+    uint32_t index;
+};
+
+// Manages descriptor image information.
+struct TextureCache
+{
+    // List of descriptor image information.
+    std::vector<VkDescriptorImageInfo> cache;
+    std::unordered_map<std::string, TextureID> name_map;
+    // Creates a descriptor texture and returns a corresponding ID.
+    TextureID add_texture(const VkImageView& image_view, VkSampler sampler, const std::string& name);
+    // Returns the ID of a texture if it exists.
+    TextureID find_texture(const std::string& name);
+};
+
 // Uses dynamic rendering to display 3D graphics
 class VulkanEngine
 {
   public:
     EngineStats stats;
     bool _is_initialized{false};
+    // The number of the current frame.
+    int _frame_number{0};
     bool _stop_rendering{false};
     bool _resize_requested{false};
 
     struct SDL_Window* _window{nullptr};
     std::string _window_title{"GPBR"};
     VkExtent2D _window_extent{1700, 900};
-
-    // The number of frames elapsed since the start of the program.
-    int _frame_number{0};
 
     static VulkanEngine& get();
 
@@ -175,6 +197,7 @@ class VulkanEngine
     FrameData _frames[FRAME_OVERLAP]; // An array of FrameData objects.
 
     FrameData& get_current_frame() { return _frames[_frame_number % FRAME_OVERLAP]; };
+    FrameData& get_last_frame() { return _frames[(_frame_number - 1) % FRAME_OVERLAP]; }
 
     VkSwapchainKHR _swapchain; // Manages a list of image buffers that the GPU draws into
     VkFormat _swapchain_image_format;
@@ -186,13 +209,6 @@ class VulkanEngine
     // Allows for dynamic resolution scaling.
     // Do not exeed 1.0f.
     float _render_scale{1.0f};
-
-    // time spent on a single frame (not just draw time)
-    float _frame_time{0.0f};
-    // rolling average Frames Per Second
-    float _avg_FPS{0.0f};
-    // 1 second delay between updates
-    float _FPS_delay{1.0f};
 
     // Allocates memory for all descriptors.
     DescriptorAllocatorGrowable global_descriptor_allocator;
@@ -242,7 +258,11 @@ class VulkanEngine
     std::unordered_map<std::string, std::shared_ptr<LoadedGLTF>> _loaded_scenes;
 
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
-    VkDescriptorSetLayout _light_data_descriptor_layout;
+    VkDescriptorSetLayout _gpu_light_data_descriptor_layout;
+
+    // Descriptor layout for bindless rendering pipeline.
+    VkDescriptorSetLayout _bindless_descriptor_layout;
+
     // VkDescriptorSetLayout _gltf_mat_descriptor_layout;
 
     std::vector<ComputeEffect> background_effects;
@@ -253,6 +273,15 @@ class VulkanEngine
 
     // A point light.
     GPULightData _light_data;
+
+    // New Stuff
+    // =======================================
+
+    AllocatedBuffer _default_GLTF_material_data;
+    VkDescriptorPool _descriptor_pool;
+    TextureCache _texture_cache;
+
+    // =======================================
 
     // Initializes structures and objects required to run the engine.
     void init();
@@ -307,6 +336,7 @@ class VulkanEngine
     void create_swapchain(uint32_t width, uint32_t height);
     // Initializes the swapchain for the current window.
     void init_swapchain();
+
     void destroy_swapchain();
     // Recreates the swapchain to suit the current window dimensions.
     void resize_swapchain();
