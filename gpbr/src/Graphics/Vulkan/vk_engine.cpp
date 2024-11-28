@@ -139,7 +139,7 @@ void VulkanEngine::init()
         {    "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"}
     };
 
-    std::string gltf_path{glTF_map["Deccer Complex"]};
+    std::string gltf_path{glTF_map["Duck"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -174,9 +174,12 @@ void VulkanEngine::init_vulkan()
     features13.maintenance4     = true;
 
     VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-    features12.bufferDeviceAddress = true;
-    features12.descriptorIndexing  = true; // bindless texture support
-    features12.hostQueryReset      = true;
+    features12.bufferDeviceAddress                      = true;
+    features12.descriptorIndexing                       = true; // bindless texture support
+    features12.descriptorBindingPartiallyBound          = true;
+    features12.descriptorBindingVariableDescriptorCount = true;
+    features12.runtimeDescriptorArray                   = true;
+    features12.hostQueryReset                           = true;
 
     VkPhysicalDeviceFeatures features{}; // 1.0 features
     features.fillModeNonSolid  = true;
@@ -446,20 +449,18 @@ void VulkanEngine::draw_main(VkCommandBuffer cmd)
     vkCmdPushConstants(
         cmd, _gradient_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &effect.data);
     // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
-    vkCmdDispatch(cmd, std::ceil(_window_extent.width / 16.0), std::ceil(_window_extent.height / 16.0), 1);
+    vkCmdDispatch(cmd, std::ceil(_draw_extent.width / 16.0), std::ceil(_draw_extent.height / 16.0), 1);
 
-    // draw the triangle
+    // draw the 3D geometry
 
-    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-    VkRenderingAttachmentInfo colorAttachment =
-        vkinit::attachment_info(_draw_image.image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment =
+    VkRenderingAttachmentInfo color_attachment =
+        vkinit::attachment_info(_draw_image.image_view, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+    VkRenderingAttachmentInfo depth_attachment =
         vkinit::depth_attachment_info(_depth_image.image_view, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkRenderingInfo renderInfo = vkinit::rendering_info(_window_extent, &colorAttachment, &depthAttachment);
+    VkRenderingInfo render_info = vkinit::rendering_info(_draw_extent, &color_attachment, &depth_attachment);
 
-    vkCmdBeginRendering(cmd, &renderInfo);
+    vkCmdBeginRendering(cmd, &render_info);
 
     auto start = std::chrono::system_clock::now();
 
@@ -641,12 +642,31 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     GPUSceneData* sceneUniformData = (GPUSceneData*)gpuSceneDataBuffer.allocation->GetMappedData();
     *sceneUniformData              = _scene_data;
 
+    VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO, .pNext = nullptr};
+
+    uint32_t descriptor_counts          = _texture_cache.cache.size();
+    alloc_array_info.pDescriptorCounts  = &descriptor_counts;
+    alloc_array_info.descriptorSetCount = 1;
+
     // create a descriptor set that binds that buffer and update it
     VkDescriptorSet globalDescriptor =
-        get_current_frame()._frame_descriptors.allocate(_device, _gpu_scene_data_descriptor_layout);
+        get_current_frame()._frame_descriptors.allocate(_device, _gpu_scene_data_descriptor_layout, &alloc_array_info);
 
     DescriptorWriter writer;
     writer.write_buffer(0, gpuSceneDataBuffer.buffer, sizeof(GPUSceneData), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+    if (_texture_cache.cache.size() > 0)
+    {
+        VkWriteDescriptorSet array_set{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+        array_set.descriptorCount = _texture_cache.cache.size();
+        array_set.dstArrayElement = 0;
+        array_set.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        array_set.dstBinding      = 1;
+        array_set.pImageInfo      = _texture_cache.cache.data();
+        writer.writes.push_back(array_set);
+    }
+
     writer.update_set(_device, globalDescriptor);
 
     // ========================================================================
@@ -695,8 +715,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
                 VkViewport viewport = {};
                 viewport.x          = 0;
                 viewport.y          = 0;
-                viewport.width      = (float)_window_extent.width;
-                viewport.height     = (float)_window_extent.height;
+                viewport.width      = (float)_draw_extent.width;
+                viewport.height     = (float)_draw_extent.height;
                 viewport.minDepth   = 0.f;
                 viewport.maxDepth   = 1.f;
 
@@ -705,8 +725,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
                 VkRect2D scissor      = {};
                 scissor.offset.x      = 0;
                 scissor.offset.y      = 0;
-                scissor.extent.width  = _window_extent.width;
-                scissor.extent.height = _window_extent.height;
+                scissor.extent.width  = _draw_extent.width;
+                scissor.extent.height = _draw_extent.height;
 
                 vkCmdSetScissor(cmd, 0, 1, &scissor);
             }
@@ -778,7 +798,7 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view)
 {
     VkRenderingAttachmentInfo color_attachment =
-        vkinit::attachment_info(target_image_view, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vkinit::attachment_info(target_image_view, nullptr, VK_IMAGE_LAYOUT_GENERAL);
     VkRenderingInfo render_info = vkinit::rendering_info(_swapchain_extent, &color_attachment, nullptr);
 
     vkCmdBeginRendering(cmd, &render_info);
@@ -792,13 +812,13 @@ void VulkanEngine::update_scene()
 {
     auto start = std::chrono::system_clock::now();
 
+    _main_camera.aspect = (float)_draw_extent.width / (float)_draw_extent.height;
+    _main_camera.update();
+
     _light_data.position  = glm::vec3(0.f, 20.f, 0.f);
     _light_data.color     = glm::vec3(1.f);
     _light_data.intensity = 1.f;
     _light_data.type      = (uint32_t)LightType::Point;
-
-    _main_camera.aspect = (float)_draw_extent.width / (float)_draw_extent.height;
-    _main_camera.update();
 
     glm::mat4 view       = _main_camera.get_view_matrix();
     glm::mat4 projection = glm::perspective(
@@ -880,12 +900,11 @@ void VulkanEngine::draw()
 
     draw_main(cmd);
 
-    vkutil::transition_image(
-        cmd, _draw_image.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    vkutil::transition_image(cmd, _draw_image.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkutil::transition_image(
         cmd, _swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    VkExtent2D extent;
+    VkExtent2D extent{};
     extent.height = _window_extent.height;
     extent.width  = _window_extent.width;
 
@@ -927,7 +946,6 @@ void VulkanEngine::draw()
 
     // submit command buffer to the queue and execute it.
     //  _renderFence will now block until the graphic commands finish execution
-
     VK_CHECK(vkQueueSubmit2(_graphics_queue, 1, &submit, get_current_frame()._render_fence));
 
     // prepare present
@@ -1413,8 +1431,21 @@ void VulkanEngine::init_descriptors()
     {
         DescriptorLayoutBuilder builder;
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bind_flags = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO, .pNext = nullptr};
+
+        std::array<VkDescriptorBindingFlags, 2> flag_array{
+            0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT};
+
+        builder.bindings[1].descriptorCount = 4048;
+
+        bind_flags.bindingCount  = 2;
+        bind_flags.pBindingFlags = flag_array.data();
+
         _gpu_scene_data_descriptor_layout =
-            builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+            builder.build(_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, &bind_flags);
     }
     // descriptor set layout for independent lights
     {
@@ -1666,7 +1697,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     }
 
     VkShaderModule mesh_frag_shader;
-    if (!vkutil::load_shader_module("./Shaders/mesh.frag.debug.spv", engine->_device, &mesh_frag_shader))
+    if (!vkutil::load_shader_module("./Shaders/mesh_pbr.frag.debug.spv", engine->_device, &mesh_frag_shader))
     {
         fmt::println("Error when building the mesh fragment shader module");
     }
@@ -1684,8 +1715,6 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 
     DescriptorLayoutBuilder layout_builder;
     layout_builder.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    layout_builder.add_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    layout_builder.add_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     material_layout = layout_builder.build(engine->_device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
@@ -1734,8 +1763,8 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     opaque_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
     // create the transparent variant
-    pipeline_builder.enable_blending_additive();
-    // pipeline_builder.enable_blending_alphablend();
+    // pipeline_builder.enable_blending_additive();
+    pipeline_builder.enable_blending_alphablend();
     pipeline_builder.enable_depthtest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
     transparent_pipeline.pipeline = pipeline_builder.build_pipeline(engine->_device);
 
@@ -1787,16 +1816,6 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device,
                         sizeof(MaterialConstants),
                         resources.data_buffer_offset,
                         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    writer.write_image(1,
-                       resources.color_image.image_view,
-                       resources.color_sampler,
-                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    writer.write_image(2,
-                       resources.metal_rough_image.image_view,
-                       resources.metal_rough_sampler,
-                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     writer.update_set(device, mat_data.material_set);
 
@@ -1837,4 +1856,23 @@ void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
 
     // recurse down
     Node::draw(top_matrix, ctx);
+}
+
+TextureID TextureCache::add_texture(const VkImageView& image_view, VkSampler sampler, const std::string& name)
+{
+    for (unsigned int i = 0; i < cache.size(); i++)
+    {
+        if (cache[i].imageView == image_view && cache[i].sampler == sampler)
+        {
+            // found, return it
+            return TextureID{i};
+        }
+    }
+
+    uint32_t index = cache.size();
+
+    cache.push_back(VkDescriptorImageInfo{
+        .sampler = sampler, .imageView = image_view, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+
+    return TextureID{index};
 }

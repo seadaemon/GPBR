@@ -268,6 +268,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             images.push_back(*img);
 
             file.images[(image.name + char(ic)).c_str()] = *img;
+            // imageIDs.push_back( engine->texCache.AddTexture(materialResources.colorImage.imageView,
+            // materialResources.colorSampler, );
         }
         else
         {
@@ -309,9 +311,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         // get the alpha cut-off
         constants.extra[0].x = mat.alphaCutoff;
 
-        // write material parameters to buffer
-        scene_material_constants[data_index] = constants;
-
         // determine if material supports transparency
         MaterialPass pass_type = MaterialPass::MainColor;
 
@@ -344,6 +343,23 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             material_resources.color_image   = images[img];
             material_resources.color_sampler = file.samplers[sampler];
         }
+
+        // TODO: create a naming scheme
+
+        constants.color_tex_ID =
+            engine->_texture_cache
+                .add_texture(material_resources.color_image.image_view, material_resources.color_sampler, "")
+                .index;
+
+        constants.metal_rough_tex_ID = engine->_texture_cache
+                                           .add_texture(material_resources.metal_rough_image.image_view,
+                                                        material_resources.metal_rough_sampler,
+                                                        "")
+                                           .index;
+
+        // write material parameters to buffer
+        scene_material_constants[data_index] = constants;
+
         // build material
         new_mat->data = engine->_metal_rough_material.write_material(
             engine->_device, pass_type, material_resources, file.descriptor_pool);

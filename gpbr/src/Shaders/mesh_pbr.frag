@@ -60,10 +60,4 @@ void main()
     vec4 color = inColor * texture(allTextures[colorID],inUV);
 
 	outFragColor = vec4(color.rgb * lightValue + color.rgb * irradiance.x * vec3(0.2f) ,color.a);
-
-    if(texture(allTextures[colorID],inUV).a < materialData.alpha_cutoff.x)
-    {
-        discard;
-    }
-
 }
