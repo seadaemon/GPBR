@@ -11,7 +11,7 @@ layout (location = 0) out vec4 outFragColor;
 
 void main()
 {
-	vec3 n = inNormal;
+	vec3 n = inNormal; 
 
 	float light_value = max(dot(inNormal, sceneData.sunlight_direction.xyz), 0.1f);
 

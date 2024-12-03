@@ -67,7 +67,7 @@ struct ComputeEffect
     ComputePushConstants data;
 };
 
-// Contains structures required to use glTF PBR materials.
+// Provides pipelines to use glTF 2.0 Metallic-Roughness Materials.
 struct GLTFMetallic_Roughness
 {
     MaterialPipeline opaque_pipeline;
@@ -78,14 +78,13 @@ struct GLTFMetallic_Roughness
 
     struct MaterialConstants
     {
-        glm::vec4 color_factors;
-        glm::vec4 metal_rough_factors;
+        glm::vec4 base_color_factor;
+        float metallic_factor;
+        float roughness_factor;
         uint32_t color_tex_ID;
         uint32_t metal_rough_tex_ID;
         // padding
-        uint32_t pad1;
-        uint32_t pad2;
-        glm::vec4 extra[13];
+        glm::vec4 extra[14];
     };
 
     struct MaterialResources

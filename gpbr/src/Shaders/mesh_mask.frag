@@ -5,17 +5,20 @@
 
 #define USE_BINDLESS
 #include "input_structures.glsl"
-
+#include "pbr.glsl"
+#include "blinn_phong.glsl"
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec2 inUV;
+layout (location = 3) in vec3 inPos;
+layout (location = 4) in vec3 inLightPos;
 
 layout (location = 0) out vec4 outFragColor;
 
 struct SHCoefficients {
     vec3 l00, l1m1, l10, l11, l2m2, l2m1, l20, l21, l22;
-};
+}; 
 
 const SHCoefficients grace = SHCoefficients(
     vec3( 0.3623915,  0.2624130,  0.2326261 ),
@@ -49,21 +52,50 @@ vec3 calcIrradiance(vec3 nor) {
         2.0 * c2 * c.l10  * nor.z
     );
 }
- 
+
 void main() 
 {
-	float lightValue = max(dot(inNormal, vec3(0.3f,1.f,0.3f)), 0.1f);
-
-	vec3 irradiance = calcIrradiance(inNormal); 
+    // light, normal, view vectors
+    vec3 lv = normalize(inLightPos - inPos);
+    vec3 nv = normalize(inNormal);
+    vec3 vv = normalize(sceneData.camera_pos - inPos);
+    vec3 hv = normalize(lv + vv);
 
     int colorID = materialData.color_texture_ID;
-    vec4 color = inColor * texture(allTextures[colorID],inUV);
+    vec4 base_color = inColor * texture(allTextures[colorID],inUV);
 
-	outFragColor = vec4(color.rgb * lightValue + color.rgb * irradiance.x * vec3(0.2f) ,color.a);
+    int metallic_ID = materialData.metal_rough_texture_ID;
+    vec4 metallic_roughness = texture(allTextures[metallic_ID], inUV); 
+    
+    //vec4 metallic_roughness = texture( nonuniformEXT(allTextures[metallic_ID]), inUV);
 
-    if(texture(allTextures[colorID],inUV).a < materialData.alpha_cutoff.x)
+    float roughness = materialData.roughness_factor * metallic_roughness.g;
+    roughness = max(roughness, 1e-2); 
+     
+    float metallic = materialData.metallic_factor * metallic_roughness.b;
+
+    float lightValue = clamp(dot(lv, nv), 0.f, 1.f); 
+
+    
+    vec3 diffuse_color = (1.0 - metallic) * base_color.rgb;
+
+    vec3 dielectric_specular = vec3(0.04); 
+
+    vec3 f0 = mix(dielectric_specular, base_color.rgb, metallic);
+
+    vec3 pbr = pbr_BRDF(diffuse_color, metallic, roughness, f0, nv, vv, lv);  
+
+    vec3 blinn_phong = blinnPhongBRDF(base_color.rgb, nv, vv, lv, hv); 
+
+    //outFragColor = vec4(base_color,color.a);
+      
+    outFragColor = vec4(pbr, base_color.a);
+
+	//outFragColor = vec4(blinn_phong, color.a);
+    
+    if(base_color.a < materialData.alpha_cutoff.x)
     {
         discard;
     }
-
 }
+

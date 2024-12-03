@@ -7,11 +7,10 @@
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec4 outColor;
 layout (location = 2) out vec2 outUV;
-layout (location = 3) out vec4 outPosition;
-layout (location = 4) out vec3 outLightPos;
+layout (location = 3) out vec3 outPosition;
+layout (location = 4) out vec3 outLightPos; 
 
 struct Vertex {
-
 	vec3 position;
 	float uv_x;
 	vec3 normal;
@@ -38,12 +37,14 @@ void main()
 
 	gl_Position =  sceneData.view_proj * PushConstants.render_matrix * position;
 
-	outNormal = normalize((PushConstants.render_matrix * vec4(v.normal, 0.f)).xyz);
+	// Apply the normal matrix; needed for non-uniform scale
+	outNormal = mat3(transpose(inverse(PushConstants.render_matrix))) *  v.normal;
 	
-	outPosition = PushConstants.render_matrix * position;
-	outLightPos = (PushConstants.render_matrix * vec4(lightData.position, 1.f)).xyz;
+	// World space 
+	outPosition = (PushConstants.render_matrix * position).xyz;
+	outLightPos = lightData.position;
 
-	outColor = v.color.rgba * materialData.color_factors.rgba;
+	outColor = v.color.rgba * materialData.base_color_factor.rgba;
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
 }
