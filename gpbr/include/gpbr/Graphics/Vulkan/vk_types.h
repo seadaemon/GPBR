@@ -25,6 +25,7 @@
 #include <glm/vec4.hpp>
 #include <glm/trigonometric.hpp>
 
+// s
 struct AllocatedImage
 {
     VkImage image;

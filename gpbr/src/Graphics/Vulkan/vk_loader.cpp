@@ -268,6 +268,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             images.push_back(*img);
 
             file.images[(image.name + char(ic)).c_str()] = *img;
+            fmt::println("img: '{}'", image.name.c_str());
             // imageIDs.push_back( engine->texCache.AddTexture(materialResources.colorImage.imageView,
             // materialResources.colorSampler, );
         }

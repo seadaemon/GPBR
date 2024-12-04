@@ -19,7 +19,8 @@ float D_GGX(float NoH, float roughness)
 
 // Adopted from: https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf
 // Schlick-GGX Geometry Function
-float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) {
+float V_SmithGGXCorrelated(float NoV, float NoL, float roughness) 
+{
     float a2 = roughness * roughness;
     float GGXV = NoL * sqrt(NoV * NoV * (1.0 - a2) + a2);
     float GGXL = NoV * sqrt(NoL * NoL * (1.0 - a2) + a2);
@@ -82,9 +83,7 @@ vec3 pbr_BRDF(vec3 diffuse, float metallic, float roughness, vec3 f0, vec3 n, ve
 	Fr *= energyCompensation;
 
 	// diffuse BRDF
-	//vec3 Fd = diffuse * Fd_Lambert();
-
 	vec3 Fd = diffuse * Fd_Burley(NoV, NoL, LoH, rough);
 
-	return (Fd + Fr) * NoL;
+	return Fd + Fr;
 }

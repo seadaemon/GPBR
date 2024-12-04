@@ -121,24 +121,25 @@ void VulkanEngine::init()
     std::string prefix{".\\Assets\\"};
 
     std::unordered_map<std::string, std::string> glTF_map{
-        {         "AlphaBlendModeTest",                prefix + "AlphaBlendModeTest.glb"},
-        {                      "Basic",                         prefix + "basicmesh.glb"},
-        {                        "Cow",                               prefix + "Cow.glb"}, // Loads but is invisible
-        {                       "Cube",                              prefix + "Cube.glb"},
-        {                       "Duck",                              prefix + "Duck.glb"},
-        {                     "Dragon",                 prefix + "DragonAttenuation.glb"},
-        {                    "Dragon2",                           prefix + "Dragon2.glb"},
-        {                     "Sphere",                            prefix + "Sphere.glb"},
-        {                     "Sponza",                            prefix + "sponza.glb"},
-        {                  "Structure",                         prefix + "structure.glb"},
-        {              "Structure Mat",                     prefix + "structure_mat.glb"},
-        {                    "Suzanne",                           prefix + "Suzanne.glb"},
-        {             "Deccer Colored",           prefix + "SM_Deccer_Cubes_Colored.glb"},
-        {            "Deccer Textured",          prefix + "SM_Deccer_Cubes_Textured.glb"},
-        {             "Deccer Rotated",     prefix + "SM_Deccer_Cubes_With_Rotation.glb"}, // One of the cubes is bugged
-        {             "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"},
-        {          "MetalRoughSpheres",                 prefix + "MetalRoughSpheres.glb"},
-        {"MetalRoughSpheresNoTextures",       prefix + "MetalRoughSpheresNoTextures.glb"}
+        {"AlphaBlendModeTest",                prefix + "AlphaBlendModeTest.glb"},
+        {             "Basic",                         prefix + "basicmesh.glb"},
+        {               "Cow",                               prefix + "Cow.glb"}, // Loads but is invisible
+        {              "Cube",                              prefix + "Cube.glb"},
+        {              "Duck",                              prefix + "Duck.glb"},
+        {            "Dragon",                 prefix + "DragonAttenuation.glb"},
+        {           "Dragon2",                           prefix + "Dragon2.glb"},
+        {            "Sphere",                            prefix + "Sphere.glb"},
+        {            "Sponza",                            prefix + "sponza.glb"},
+        {         "Structure",                         prefix + "structure.glb"},
+        {     "Structure Mat",                     prefix + "structure_mat.glb"},
+        {           "Suzanne",                           prefix + "Suzanne.glb"},
+        {    "Deccer Colored",           prefix + "SM_Deccer_Cubes_Colored.glb"},
+        {   "Deccer Textured",          prefix + "SM_Deccer_Cubes_Textured.glb"},
+        {    "Deccer Rotated",     prefix + "SM_Deccer_Cubes_With_Rotation.glb"}, // One of the cubes is bugged
+        {    "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"},
+        { "MetalRoughSpheres",                 prefix + "MetalRoughSpheres.glb"},
+        {             "Horse",                       prefix + "horseStatue.glb"},
+        {          "Baseball",                          prefix + "baseball.glb"}
     };
 
     std::string gltf_path{glTF_map["MetalRoughSpheres"]};
@@ -828,7 +829,11 @@ void VulkanEngine::update_scene()
 
     // glm::mat4 rot = glm::rotate(glm::mat4{1.f}, glm::radians(.1f * _frame_number), glm::vec3(0, 1, 0));
 
-    _loaded_scenes["debug"]->draw(glm::mat4{1.f}, _main_draw_context);
+    glm::mat4 transf{1.f};
+
+    transf = glm::scale(transf, glm::vec3(1.f));
+
+    _loaded_scenes["debug"]->draw(transf, _main_draw_context);
 
     auto end     = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
