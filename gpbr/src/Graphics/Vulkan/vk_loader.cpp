@@ -268,6 +268,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             images.push_back(*img);
 
             file.images[(image.name + char(ic)).c_str()] = *img;
+            // imageIDs.push_back( engine->texCache.AddTexture(materialResources.colorImage.imageView,
+            // materialResources.colorSampler, );
         }
         else
         {
@@ -299,18 +301,15 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
         // gather material constants
         GLTFMetallic_Roughness::MaterialConstants constants;
-        constants.color_factors.x       = mat.pbrData.baseColorFactor[0];
-        constants.color_factors.y       = mat.pbrData.baseColorFactor[1];
-        constants.color_factors.z       = mat.pbrData.baseColorFactor[2];
-        constants.color_factors.w       = mat.pbrData.baseColorFactor[3];
-        constants.metal_rough_factors.x = mat.pbrData.metallicFactor;
-        constants.metal_rough_factors.y = mat.pbrData.roughnessFactor;
+        constants.base_color_factor.x = mat.pbrData.baseColorFactor[0];
+        constants.base_color_factor.y = mat.pbrData.baseColorFactor[1];
+        constants.base_color_factor.z = mat.pbrData.baseColorFactor[2];
+        constants.base_color_factor.w = mat.pbrData.baseColorFactor[3];
+        constants.metallic_factor     = mat.pbrData.metallicFactor;
+        constants.roughness_factor    = mat.pbrData.roughnessFactor;
 
         // get the alpha cut-off
         constants.extra[0].x = mat.alphaCutoff;
-
-        // write material parameters to buffer
-        scene_material_constants[data_index] = constants;
 
         // determine if material supports transparency
         MaterialPass pass_type = MaterialPass::MainColor;
@@ -336,6 +335,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         material_resources.data_buffer_offset = data_index * sizeof(GLTFMetallic_Roughness::MaterialConstants);
 
         // grab textures from gltf file
+
+        // base color texture AKA albedo
         if (mat.pbrData.baseColorTexture.has_value())
         {
             size_t img     = gltf.textures[mat.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
@@ -344,6 +345,34 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             material_resources.color_image   = images[img];
             material_resources.color_sampler = file.samplers[sampler];
         }
+
+        // metallic roughness texture
+        if (mat.pbrData.metallicRoughnessTexture.has_value())
+        {
+            size_t img = gltf.textures[mat.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+            size_t sampler =
+                gltf.textures[mat.pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+
+            material_resources.metal_rough_image   = images[img];
+            material_resources.metal_rough_sampler = file.samplers[sampler];
+        }
+
+        // TODO: create a naming scheme
+
+        constants.color_tex_ID =
+            engine->_texture_cache
+                .add_texture(material_resources.color_image.image_view, material_resources.color_sampler, "a")
+                .index;
+
+        constants.metal_rough_tex_ID = engine->_texture_cache
+                                           .add_texture(material_resources.metal_rough_image.image_view,
+                                                        material_resources.metal_rough_sampler,
+                                                        "b")
+                                           .index;
+
+        // write material parameters to buffer
+        scene_material_constants[data_index] = constants;
+
         // build material
         new_mat->data = engine->_metal_rough_material.write_material(
             engine->_device, pass_type, material_resources, file.descriptor_pool);

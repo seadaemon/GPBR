@@ -1,3 +1,9 @@
+/* vk_types.h
+ *
+ * Provides common include directives and structures. Intended to be used
+ * with source files in the Vulkan directory.
+ *
+ */
 #pragma once
 
 #include <memory>
@@ -50,10 +56,13 @@ struct GPUSceneData
     glm::mat4 view;
     glm::mat4 proj;
     glm::mat4 view_proj;
+    glm::vec3 camera_pos;
     glm::vec4 ambient_color;
     glm::vec4 sunlight_direction; // xyz for direction; w for intensity
     glm::vec4 sunlight_color;
 };
+
+static_assert(sizeof(GPUSceneData) <= 256);
 
 enum class MaterialPass : uint8_t
 {
@@ -102,6 +111,9 @@ struct GPUDrawPushConstants
     VkDeviceAddress vertex_buffer;
 };
 
+static_assert(sizeof(GPUDrawPushConstants) <= 128);
+
+// TODO: implement this?
 struct DrawContext;
 
 // Base class for a renderable dynamic object

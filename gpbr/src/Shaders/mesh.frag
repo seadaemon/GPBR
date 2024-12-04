@@ -9,8 +9,10 @@ layout (location = 2) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragColor;
 
-void main() 
+void main()
 {
+	vec3 n = inNormal; 
+
 	float light_value = max(dot(inNormal, sceneData.sunlight_direction.xyz), 0.1f);
 
 	vec4 color = inColor.rgba * texture(colorTex,inUV).rgba;
