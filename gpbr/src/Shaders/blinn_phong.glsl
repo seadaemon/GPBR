@@ -11,7 +11,7 @@ vec3 blinnPhongBRDF(vec3 diffuse_color, vec3 n, vec3 v, vec3 l, vec3 h)
 	vec3 specular_color = diffuse_color * 0.5f;
 	float NoH = clamp(dot(n,h), 0.f, 1.f);
 
-	float shininess = 32.f * 4.f;
+	float shininess = 32.f;
 
 	vec3 Fr = specular_color * pow(NoH, shininess); 
 

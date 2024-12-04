@@ -1,5 +1,7 @@
-/* Provides functionality to create descriptors as well as descriptor set
- * layouts, descriptor sets, and descriptor pools.
+/*
+ * Provides functionality to create and manipulate descriptors
+ * This includes handling memory allocation (via pools), creating layouts,
+ * creating bindings, and creating/updating descriptor sets.
  */
 #pragma once
 #include <vector>
@@ -7,36 +9,33 @@
 #include <deque>
 #include <span>
 
-// Provides methods to create a VkDescriptorSetLayout object.
+// Creates a VkDescriptorSetLayout to support a set of specified bindings.
 struct DescriptorLayoutBuilder
 {
-    // List of descriptor set layout bindings to be used when building a descriptor set layout.
+    // List of bindings to be used when building the layout.
     std::vector<VkDescriptorSetLayoutBinding> bindings;
-    // Creates a VKDescriptorSetLayoutBinding with the given type and binding number and adds it to the list.
-    void add_binding(uint32_t binding, VkDescriptorType type);
-    // Clears all bindings from the builder.
+    // Creates a binding of the given type and adds it to the list.
+    void add_binding(uint32_t binding_num, VkDescriptorType type);
+    // Removes all bindings.
     void clear();
-    // Creates a VkDescriptorSetLayout with the current bindings. The provided shader stages CAN access these bindings.
+    // Returns a VkDescriptorSetLayout with the current bindings.
     VkDescriptorSetLayout build(VkDevice device,
                                 VkShaderStageFlags shader_stages,
                                 void* p_next                           = nullptr,
                                 VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
-// Provides methods to bind and update image data and buffer data to descriptor set.
+// Handles the creation and execution of write operations for a given descriptor set.
 struct DescriptorWriter
 {
-    // Deque of structures specifying descriptor image information.
     std::deque<VkDescriptorImageInfo> image_infos;
-    // Deque of structures specifying descriptor buffer information.
     std::deque<VkDescriptorBufferInfo> buffer_infos;
-    // List of structures specifying the parameters of a descriptor set write operation.
     std::vector<VkWriteDescriptorSet> writes;
-    // Creates a descriptor set write operation for a VkImageView object.
+    // Creates a write operation for a VkImageView object.
     void write_image(int binding, VkImageView image, VkSampler sampler, VkImageLayout layout, VkDescriptorType type);
-    // Creates a descriptor set write operation for a VkBuffer object.
+    // Creates a write operation for a VkBuffer object.
     void write_buffer(int binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type);
-    // Clears all write operations and descriptor info structs.
+    // Clears all internal data structures.
     void clear();
     // Updates the contents of the given descriptor set.
     void update_set(VkDevice device, VkDescriptorSet set);

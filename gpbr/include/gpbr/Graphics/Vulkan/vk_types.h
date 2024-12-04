@@ -1,3 +1,9 @@
+/* vk_types.h
+ *
+ * Provides common include directives and structures. Intended to be used
+ * with source files in the Vulkan directory.
+ *
+ */
 #pragma once
 
 #include <memory>

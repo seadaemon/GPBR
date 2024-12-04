@@ -13,6 +13,7 @@ layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 inPos;
 layout (location = 4) in vec3 inLightPos;
+layout (location = 5) in vec3 inCameraPos;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -58,7 +59,7 @@ void main()
     // light, normal, view vectors
     vec3 lv = normalize(inLightPos - inPos);
     vec3 nv = normalize(inNormal);
-    vec3 vv = normalize(sceneData.camera_pos - inPos);
+    vec3 vv = normalize(inCameraPos - inPos); 
     vec3 hv = normalize(lv + vv);
 
     int colorID = materialData.color_texture_ID;
@@ -76,10 +77,9 @@ void main()
 
     float lightValue = clamp(dot(lv, nv), 0.f, 1.f); 
 
-    
     vec3 diffuse_color = (1.0 - metallic) * base_color.rgb;
 
-    vec3 dielectric_specular = vec3(0.04); 
+    vec3 dielectric_specular = vec3(0.04);  
 
     vec3 f0 = mix(dielectric_specular, base_color.rgb, metallic);
 

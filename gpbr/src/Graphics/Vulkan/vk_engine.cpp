@@ -121,23 +121,24 @@ void VulkanEngine::init()
     std::string prefix{".\\Assets\\"};
 
     std::unordered_map<std::string, std::string> glTF_map{
-        {"AlphaBlendModeTest",                prefix + "AlphaBlendModeTest.glb"},
-        {             "Basic",                         prefix + "basicmesh.glb"},
-        {               "Cow",                               prefix + "Cow.glb"}, // Loads but is invisible
-        {              "Cube",                              prefix + "Cube.glb"},
-        {              "Duck",                              prefix + "Duck.glb"},
-        {            "Dragon",                 prefix + "DragonAttenuation.glb"},
-        {           "Dragon2",                           prefix + "Dragon2.glb"},
-        {            "Sphere",                            prefix + "Sphere.glb"},
-        {            "Sponza",                            prefix + "sponza.glb"},
-        {         "Structure",                         prefix + "structure.glb"},
-        {     "Structure Mat",                     prefix + "structure_mat.glb"},
-        {           "Suzanne",                           prefix + "Suzanne.glb"},
-        {    "Deccer Colored",           prefix + "SM_Deccer_Cubes_Colored.glb"},
-        {   "Deccer Textured",          prefix + "SM_Deccer_Cubes_Textured.glb"},
-        {    "Deccer Rotated",     prefix + "SM_Deccer_Cubes_With_Rotation.glb"}, // One of the cubes is bugged
-        {    "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"},
-        { "MetalRoughSpheres",                 prefix + "MetalRoughSpheres.glb"}
+        {         "AlphaBlendModeTest",                prefix + "AlphaBlendModeTest.glb"},
+        {                      "Basic",                         prefix + "basicmesh.glb"},
+        {                        "Cow",                               prefix + "Cow.glb"}, // Loads but is invisible
+        {                       "Cube",                              prefix + "Cube.glb"},
+        {                       "Duck",                              prefix + "Duck.glb"},
+        {                     "Dragon",                 prefix + "DragonAttenuation.glb"},
+        {                    "Dragon2",                           prefix + "Dragon2.glb"},
+        {                     "Sphere",                            prefix + "Sphere.glb"},
+        {                     "Sponza",                            prefix + "sponza.glb"},
+        {                  "Structure",                         prefix + "structure.glb"},
+        {              "Structure Mat",                     prefix + "structure_mat.glb"},
+        {                    "Suzanne",                           prefix + "Suzanne.glb"},
+        {             "Deccer Colored",           prefix + "SM_Deccer_Cubes_Colored.glb"},
+        {            "Deccer Textured",          prefix + "SM_Deccer_Cubes_Textured.glb"},
+        {             "Deccer Rotated",     prefix + "SM_Deccer_Cubes_With_Rotation.glb"}, // One of the cubes is bugged
+        {             "Deccer Complex", prefix + "SM_Deccer_Cubes_Textured_Complex.gltf"},
+        {          "MetalRoughSpheres",                 prefix + "MetalRoughSpheres.glb"},
+        {"MetalRoughSpheresNoTextures",       prefix + "MetalRoughSpheresNoTextures.glb"}
     };
 
     std::string gltf_path{glTF_map["MetalRoughSpheres"]};
