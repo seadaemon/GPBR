@@ -11,6 +11,7 @@ BreakBeforeBraces: Allman
 BreakBeforeTernaryOperators: False
 ColumnLimit: 120
 ExperimentalAutoDetectBinPacking: false
+FixNamespaceComments: false
 IndentWidth: 4
 PackConstructorInitializers: Never
 ReferenceAlignment: Left

@@ -2,35 +2,37 @@
 #include "gpbr/Graphics/Vulkan/vk_images.h"
 #include "gpbr/Graphics/Vulkan/vk_initializers.h"
 
-// #define STB_IMAGE_IMPLEMENTATION
-// #include "stb_image.h"
-
-void vkutil::transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+void vkutil::transition_image(VkCommandBuffer cmd,
+                              VkImage image,
+                              VkImageLayout current_layout,
+                              VkImageLayout new_layout)
 {
-    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    imageBarrier.pNext = nullptr;
+    VkImageMemoryBarrier2 image_barrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    image_barrier.pNext = nullptr;
 
-    imageBarrier.srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-    imageBarrier.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+    // Todo: use more appropriate stage masks instead of using ALL_COMMANDS
+    image_barrier.srcStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    image_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+    image_barrier.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    image_barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
 
-    imageBarrier.oldLayout = currentLayout;
-    imageBarrier.newLayout = newLayout;
+    image_barrier.oldLayout = current_layout;
+    image_barrier.newLayout = new_layout;
 
-    VkImageAspectFlags aspectMask =
-        (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-    imageBarrier.subresourceRange = vkinit::image_subresource_range(aspectMask);
-    imageBarrier.image            = image;
+    VkImageAspectFlags aspect_mask = (new_layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ?
+                                         VK_IMAGE_ASPECT_DEPTH_BIT :
+                                         VK_IMAGE_ASPECT_COLOR_BIT;
+    image_barrier.subresourceRange = vkinit::image_subresource_range(aspect_mask);
+    image_barrier.image            = image;
 
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
+    VkDependencyInfo dep_info{};
+    dep_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dep_info.pNext = nullptr;
 
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers    = &imageBarrier;
+    dep_info.imageMemoryBarrierCount = 1;
+    dep_info.pImageMemoryBarriers    = &image_barrier;
 
-    vkCmdPipelineBarrier2(cmd, &depInfo);
+    vkCmdPipelineBarrier2(cmd, &dep_info);
 }
 
 void vkutil::copy_image_to_image(VkCommandBuffer cmd,
@@ -140,6 +142,6 @@ void vkutil::generate_mipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D ima
         }
     }
 
-    // transition all mip levels into the final read_only layout
+    // transition all mip levels into the final layout
     transition_image(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }

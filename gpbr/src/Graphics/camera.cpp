@@ -59,13 +59,9 @@ void Camera::update()
 
     yaw   = glm::mix(yaw, yaw + input.yaw_target, 0.1f);
     pitch = glm::mix(pitch, pitch - input.pitch_target, 0.1f);
-    // yaw += input.yaw_target;
-    // pitch -= input.pitch_target;
 
     input.yaw_target   = 0.f;
     input.pitch_target = 0.f;
-
-    //= END OF INPUT HANDLING ==================================================
 
     glm::quat pitch_rotation = glm::angleAxis(pitch, glm::vec3{1.f, 0.f, 0.f});
     glm::quat yaw_rotation   = glm::angleAxis(yaw, glm::vec3{0.f, -1.f, 0.f});

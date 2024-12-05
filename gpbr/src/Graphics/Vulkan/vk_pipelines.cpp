@@ -5,8 +5,6 @@
 
 void PipelineBuilder::clear()
 {
-    // clear all structs and provide their correct sType
-
     _input_assembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 
     _rasterizer = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
@@ -26,37 +24,29 @@ void PipelineBuilder::clear()
 
 VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
 {
-    // make viewport state from our stored viewport and scissor.
-    // at the moment we wont support multiple viewports or scissors
+    // make viewport state from the stored viewport and scissor.
     VkPipelineViewportStateCreateInfo viewport_state = {};
     viewport_state.sType                             = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewport_state.pNext                             = nullptr;
+    viewport_state.viewportCount                     = 1;
+    viewport_state.scissorCount                      = 1;
 
-    viewport_state.viewportCount = 1;
-    viewport_state.scissorCount  = 1;
-
-    // setup dummy color blending. We arent using transparent objects yet
-    // the blending is just "no blend", but we do write to the color attachment
+    // default to no blending
     VkPipelineColorBlendStateCreateInfo color_blending = {};
     color_blending.sType                               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     color_blending.pNext                               = nullptr;
-
-    color_blending.logicOpEnable   = VK_FALSE;
-    color_blending.logicOp         = VK_LOGIC_OP_COPY;
-    color_blending.attachmentCount = 1;
-    color_blending.pAttachments    = &_color_blend_attachment;
+    color_blending.logicOpEnable                       = VK_FALSE;
+    color_blending.logicOp                             = VK_LOGIC_OP_COPY;
+    color_blending.attachmentCount                     = 1;
+    color_blending.pAttachments                        = &_color_blend_attachment;
 
     // completely clear VertexInputStateCreateInfo, as we have no need for it
     VkPipelineVertexInputStateCreateInfo vertex_input_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
-    // build the actual pipeline
-    // we now use all of the info structs we have been writing into into this one
-    // to create the pipeline
     VkGraphicsPipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-    // connect the renderInfo to the pNext extension mechanism
-    pipeline_info.pNext = &_render_info;
 
+    pipeline_info.pNext               = &_render_info; // connect the renderInfo to the pNext extension mechanism
     pipeline_info.stageCount          = (uint32_t)_shader_stages.size();
     pipeline_info.pStages             = _shader_stages.data();
     pipeline_info.pVertexInputState   = &vertex_input_info;
@@ -79,7 +69,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
     VkPipeline new_pipeline;
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &new_pipeline) != VK_SUCCESS)
     {
-        fmt::println("failed to create pipeline");
+        fmt::println("Failed to create pipeline!");
         return VK_NULL_HANDLE;
     }
     else
@@ -119,22 +109,9 @@ void PipelineBuilder::set_multisampling_none()
 {
     _multisampling.sampleShadingEnable = VK_FALSE;
 
-    _multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT; // 1 sample per pixel
-    _multisampling.minSampleShading     = 1.0f;
-    _multisampling.pSampleMask          = nullptr;
-
-    _multisampling.alphaToCoverageEnable = VK_FALSE;
-    _multisampling.alphaToOneEnable      = VK_FALSE;
-}
-
-void PipelineBuilder::set_multisampling_max(VkSampleCountFlagBits sample_count)
-{
-    _multisampling.sampleShadingEnable = VK_TRUE;
-
-    _multisampling.rasterizationSamples = sample_count;
-    _multisampling.minSampleShading     = 1.0f;
-    _multisampling.pSampleMask          = nullptr;
-
+    _multisampling.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT; // 1 sample per pixel
+    _multisampling.minSampleShading      = 1.0f;
+    _multisampling.pSampleMask           = nullptr;
     _multisampling.alphaToCoverageEnable = VK_FALSE;
     _multisampling.alphaToOneEnable      = VK_FALSE;
 }
@@ -144,7 +121,6 @@ void PipelineBuilder::disable_blending()
     // default write mask
     _color_blend_attachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    // no blending
     _color_blend_attachment.blendEnable = VK_FALSE;
 }
 
@@ -172,14 +148,12 @@ void PipelineBuilder::enable_blending_alphablend()
     _color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     _color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     _color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
-    //_color_blend_attachment.colorWriteMask =
-    //  VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
 }
 
 void PipelineBuilder::set_color_attachment_format(VkFormat format)
 {
     _color_attachment_format = format;
-    // connect the format to the render_info  structure
+
     _render_info.colorAttachmentCount    = 1;
     _render_info.pColorAttachmentFormats = &_color_attachment_format;
 }
@@ -217,7 +191,7 @@ void PipelineBuilder::enable_depthtest(bool depth_write_enable, VkCompareOp op)
 
 bool vkutil::load_shader_module(const char* file_path, VkDevice device, VkShaderModule* out_shader_module)
 {
-    // open the file. With cursor at the end
+    // open the file in binary mode and seek to the end.
     std::ifstream file(file_path, std::ios::ate | std::ios::binary);
 
     if (!file.is_open())
@@ -225,39 +199,28 @@ bool vkutil::load_shader_module(const char* file_path, VkDevice device, VkShader
         return false;
     }
 
-    // find what the size of the file is by looking up the location of the cursor
-    // because the cursor is at the end, it gives the size directly in bytes
-    size_t file_size = (size_t)file.tellg();
+    size_t file_size = (size_t)file.tellg(); // file size in bytes
 
-    // spirv expects the buffer to be on uint32, so make sure to reserve a int
-    // vector big enough for the entire file
-    std::vector<uint32_t> buffer(file_size / sizeof(uint32_t));
+    std::vector<uint32_t> buffer(file_size / sizeof(uint32_t)); // reserve a buffer for the shader
 
-    // put file cursor at beginning
-    file.seekg(0);
+    file.seekg(0); // put file cursor at beginning
 
-    // load the entire file into the buffer
-    file.read((char*)buffer.data(), file_size);
+    file.read((char*)buffer.data(), file_size); // load the entire file into the buffer
 
-    // now that the file is loaded into the buffer, we can close it
     file.close();
 
-    // create a new shader module, using the buffer we loaded
     VkShaderModuleCreateInfo create_info = {};
     create_info.sType                    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     create_info.pNext                    = nullptr;
+    create_info.codeSize                 = buffer.size() * sizeof(uint32_t); // code size in bytes
+    create_info.pCode                    = buffer.data();
 
-    // codeSize has to be in bytes, so multply the ints in the buffer by size of
-    // int to know the real size of the buffer
-    create_info.codeSize = buffer.size() * sizeof(uint32_t);
-    create_info.pCode    = buffer.data();
-
-    // check that the creation goes well.
     VkShaderModule shader_module;
     if (vkCreateShaderModule(device, &create_info, nullptr, &shader_module) != VK_SUCCESS)
     {
         return false;
     }
+
     *out_shader_module = shader_module;
     return true;
 }
