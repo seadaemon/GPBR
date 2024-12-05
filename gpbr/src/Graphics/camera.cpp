@@ -1,6 +1,7 @@
 #include "gpbr/Graphics/camera.h"
 #include "glm/gtx/transform.hpp"
 #include "glm/gtx/quaternion.hpp"
+#include "glm/gtc/epsilon.hpp"
 
 Camera::Camera(float near /*= 0.1f*/, float far /*= 1000.f*/, float fovy /*= 1.22173f*/)
     : near(near),
@@ -19,7 +20,8 @@ Camera::Camera(float near /*= 0.1f*/, float far /*= 1000.f*/, float fovy /*= 1.2
       forward{0.f, 0.f, -1.f},
       right{1.f, 0.f, 0.f},
       up{0.f, 1.f, 0.f},
-      frustum{}
+      frustum{},
+      input{false}
 {
 }
 
@@ -29,6 +31,39 @@ Camera::~Camera() {}
 
 void Camera::update()
 {
+    velocity = glm::vec3{0.f};
+
+    if (input.move_forwards)
+    {
+        velocity.z = -max_velocity;
+    }
+    if (input.move_backwards)
+    {
+        velocity.z = max_velocity;
+    }
+    if (input.move_left)
+    {
+        velocity.x = -max_velocity;
+    }
+    if (input.move_right)
+    {
+        velocity.x = max_velocity;
+    }
+
+    // normalize only when velocity is non-zero
+    if (glm::epsilonEqual(velocity, glm::vec3(0.f), 1e-3f) != glm::bvec3(true))
+    {
+        velocity = glm::normalize(velocity) * max_velocity;
+    }
+
+    yaw += input.yaw_target;
+    pitch -= input.pitch_target;
+
+    input.yaw_target   = 0.f;
+    input.pitch_target = 0.f;
+
+    //= END OF INPUT HANDLING ==================================================
+
     glm::quat pitch_rotation = glm::angleAxis(pitch, glm::vec3{1.f, 0.f, 0.f});
     glm::quat yaw_rotation   = glm::angleAxis(yaw, glm::vec3{0.f, -1.f, 0.f});
     rotation_mat             = glm::toMat4(yaw_rotation) * glm::toMat4(pitch_rotation);
@@ -58,50 +93,52 @@ void Camera::update()
 
 void Camera::process_SDL_event(SDL_Event& e)
 {
-    // Keyboard inputs WASD
+    // Keyboard inputs
     if (e.type == SDL_EVENT_KEY_DOWN)
     {
         if (e.key.key == SDLK_W)
         {
-            velocity.z = -max_velocity;
+            input.move_forwards = true;
         }
         if (e.key.key == SDLK_S)
         {
-            velocity.z = max_velocity;
+            input.move_backwards = true;
         }
         if (e.key.key == SDLK_A)
         {
-            velocity.x = -max_velocity;
+            input.move_left = true;
         }
         if (e.key.key == SDLK_D)
         {
-            velocity.x = max_velocity;
+            input.move_right = true;
         }
     }
     if (e.type == SDL_EVENT_KEY_UP)
     {
         if (e.key.key == SDLK_W)
         {
-            velocity.z = 0;
+            input.move_forwards = false;
         }
         if (e.key.key == SDLK_S)
         {
-            velocity.z = 0;
+            input.move_backwards = false;
         }
         if (e.key.key == SDLK_A)
         {
-            velocity.x = 0;
+            input.move_left = false;
         }
         if (e.key.key == SDLK_D)
         {
-            velocity.x = 0;
+            input.move_right = false;
         }
     }
 
     // Mouse Inputs
     if (e.type == SDL_EVENT_MOUSE_MOTION)
     {
-        yaw += (float)e.motion.xrel / 200.f;
-        pitch -= (float)e.motion.yrel / 200.f;
+        input.yaw_target   = (float)e.motion.xrel / 200.f;
+        input.pitch_target = (float)e.motion.yrel / 200.f;
+        // yaw += (float)e.motion.xrel / 200.f;
+        // pitch -= (float)e.motion.yrel / 200.f;
     }
 }

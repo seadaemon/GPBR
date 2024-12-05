@@ -30,6 +30,18 @@ struct Frustum
     Plane far;
 };
 
+// Tracks the state of user inputs for smooth processing.
+struct InputState
+{
+    bool move_forwards;
+    bool move_backwards;
+    bool move_left;
+    bool move_right;
+
+    float yaw_target;
+    float pitch_target;
+};
+
 // A configurable 3D camera.
 class Camera
 {
@@ -59,6 +71,8 @@ class Camera
     glm::vec3 up;      // +Y in view-space.
 
     Frustum frustum; // Perspective view frustum.
+
+    InputState input; // Current state of user input.
 
     void process_SDL_event(SDL_Event& e);
 

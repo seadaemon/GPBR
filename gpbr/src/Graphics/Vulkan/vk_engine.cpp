@@ -1053,6 +1053,7 @@ void VulkanEngine::run()
         ImGui::SetWindowSize(ImVec2(200, 150));
         ImGui::SetWindowPos(ImVec2(200, 0));
         ImGui::Text("Pos: %.2f, %.2f, %.2f", _main_camera.position.x, _main_camera.position.y, _main_camera.position.z);
+        ImGui::Text("Vel: %.2f, %.2f, %.2f", _main_camera.velocity.x, _main_camera.velocity.y, _main_camera.velocity.z);
         ImGui::Text("For: %.2f, %.2f, %.2f", _main_camera.forward.x, _main_camera.forward.y, _main_camera.forward.z);
         ImGui::Text("Rig: %.2f, %.2f, %.2f", _main_camera.right.x, _main_camera.right.y, _main_camera.right.z);
         ImGui::Text("Up : %.2f, %.2f, %.2f", _main_camera.up.x, _main_camera.up.y, _main_camera.up.z);
