@@ -1,5 +1,8 @@
-// vk_initializers.h
-// abstracts initialization of Vulkan structures
+/* vk_initializers.h
+ *
+ * Provides methods to initialize Vulkan info structures.
+ *
+ */
 #pragma once
 
 #include "vk_types.h"
@@ -22,6 +25,7 @@ VkSemaphoreCreateInfo semaphore_create_info(VkSemaphoreCreateFlags flags = 0);
 VkSubmitInfo2 submit_info(VkCommandBufferSubmitInfo* cmd,
                           VkSemaphoreSubmitInfo* signal_semaphore_info,
                           VkSemaphoreSubmitInfo* wait_semaphore_info);
+
 VkPresentInfoKHR present_info();
 
 VkRenderingAttachmentInfo attachment_info(VkImageView view,
@@ -38,11 +42,13 @@ VkRenderingInfo rendering_info(VkExtent2D render_extent,
 VkImageSubresourceRange image_subresource_range(VkImageAspectFlags aspect_mask);
 
 VkSemaphoreSubmitInfo semaphore_submit_info(VkPipelineStageFlags2 stage_mask, VkSemaphore semaphore);
+
 VkDescriptorSetLayoutBinding descriptorset_layout_binding(VkDescriptorType type,
                                                           VkShaderStageFlags stage_flags,
                                                           uint32_t binding);
 VkDescriptorSetLayoutCreateInfo descriptorset_layout_create_info(VkDescriptorSetLayoutBinding* bindings,
                                                                  uint32_t binding_count);
+
 VkWriteDescriptorSet write_descriptor_image(VkDescriptorType type,
                                             VkDescriptorSet dst_set,
                                             VkDescriptorImageInfo* image_info,
@@ -51,9 +57,9 @@ VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type,
                                              VkDescriptorSet dst_set,
                                              VkDescriptorBufferInfo* buffer_info,
                                              uint32_t binding);
+
 VkDescriptorBufferInfo buffer_info(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize range);
 
-// Provides a configured VkImageCreateInfo struct
 VkImageCreateInfo image_create_info(VkFormat format,
                                     VkImageUsageFlags usage_flags,
                                     VkExtent3D extent,
