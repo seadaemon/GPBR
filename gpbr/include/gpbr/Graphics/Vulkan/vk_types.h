@@ -25,7 +25,7 @@
 #include <glm/vec4.hpp>
 #include <glm/trigonometric.hpp>
 
-// s
+// Represents a Vulkan image and its related resources.
 struct AllocatedImage
 {
     VkImage image;
@@ -35,6 +35,7 @@ struct AllocatedImage
     VkFormat image_format;
 };
 
+// Represents a Vulkan buffer and its related resources.
 struct AllocatedBuffer
 {
     VkBuffer buffer;
@@ -42,16 +43,7 @@ struct AllocatedBuffer
     VmaAllocationInfo info;
 };
 
-// Unused?
-struct GPUGLTFMaterial
-{
-    glm::vec4 color_factors;
-    glm::vec4 metal_rough_factors;
-    glm::vec4 extra[14];
-};
-
-static_assert(sizeof(GPUGLTFMaterial) == 256);
-
+// Scene data to be sent to the GPU as a uniform buffer.
 struct GPUSceneData
 {
     glm::mat4 view;
@@ -62,9 +54,9 @@ struct GPUSceneData
     glm::vec4 sunlight_direction; // xyz for direction; w for intensity
     glm::vec4 sunlight_color;
 };
-
 static_assert(sizeof(GPUSceneData) <= 256);
 
+// Material pass type to determine which pipeline to use.
 enum class MaterialPass : uint8_t
 {
     MainColor,
@@ -73,14 +65,14 @@ enum class MaterialPass : uint8_t
     Other
 };
 
-// Specifies a pipeline and pipeline layout for a given material
+// Contains a pipeline and pipeline layout for a given material.
 struct MaterialPipeline
 {
     VkPipeline pipeline;
     VkPipelineLayout layout;
 };
 
-// Specifies a pipeline and descriptor set for a given material
+// Contains a material pipeline, descriptor set, and material pass for a given material.
 struct MaterialInstance
 {
     MaterialPipeline* pipeline;
@@ -88,6 +80,7 @@ struct MaterialInstance
     MaterialPass pass_type;
 };
 
+// Contains vertex data to be sent to the GPU.
 struct Vertex
 {
     glm::vec3 position;
@@ -97,7 +90,7 @@ struct Vertex
     glm::vec4 color;
 };
 
-// Holds the resources needed for a mesh
+// Contains mesh-specific index and vertex buffers to be sent to the GPU.
 struct GPUMeshBuffers
 {
     AllocatedBuffer index_buffer;
@@ -105,37 +98,34 @@ struct GPUMeshBuffers
     VkDeviceAddress vertex_buffer_address;
 };
 
-// push constants for mesh object draws
+// Contains mesh-specific data to be used in a draw-call. Intended to be sent
+// to the GPU as a push constant.
 struct GPUDrawPushConstants
 {
     glm::mat4 world_matrix;
-    VkDeviceAddress vertex_buffer;
+    VkDeviceAddress vertex_buffer_address;
 };
-
 static_assert(sizeof(GPUDrawPushConstants) <= 128);
 
-// TODO: implement this?
-struct DrawContext;
+struct DrawContext; // forward decl.
 
-// Base class for a renderable dynamic object
+// Base class for a renderable object
 class IRenderable
 {
     virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) = 0;
 };
 
 // Implementation of a drawable scene node.
-// the scene node can hold children and will also keep a transform to propagate
-// to them
+// Supports hierarchical transformations.
 struct Node : public IRenderable
 {
-
-    // parent pointer must be a weak pointer to avoid circular dependencies
-    std::weak_ptr<Node> parent;
+    std::weak_ptr<Node> parent; // Weak pointer to avoid circular dependencies.
     std::vector<std::shared_ptr<Node>> children;
 
     glm::mat4 local_transform;
     glm::mat4 world_transform;
 
+    // Recursively updates the world transform for each node.
     void refresh_transform(const glm::mat4& parent_matrix)
     {
         world_transform = parent_matrix * local_transform;
@@ -145,9 +135,9 @@ struct Node : public IRenderable
         }
     }
 
+    // Recursively draws each node.
     virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx)
     {
-        // draw children
         for (auto& c : children)
         {
             c->draw(top_matrix, ctx);
@@ -155,7 +145,8 @@ struct Node : public IRenderable
     }
 };
 
-// TODO: add support for error values less than 0 (e.g. if(err <= 0))
+// CONSIDER: add support for error values less than 0 (e.g. if(err <= 0))
+
 #define VK_CHECK(x)                                                                                                    \
     do                                                                                                                 \
     {                                                                                                                  \

@@ -139,11 +139,11 @@ struct EngineStats
     float mesh_draw_time;
 };
 
-// Holds a shared pointer to a MeshAsset
+// A drawable node containing mesh data.
 struct MeshNode : public Node
 {
     std::shared_ptr<MeshAsset> mesh;
-
+    // Appends render objects to the draw context.
     virtual void draw(const glm::mat4& top_matrix, DrawContext& ctx) override;
 };
 

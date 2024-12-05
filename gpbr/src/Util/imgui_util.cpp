@@ -4,11 +4,11 @@
 namespace util
 {
 
-// FixMe: using an anonymous namespace to hold each theme in a "private" method
+// currently using an anonymous namespace to hold each theme in a "private" method
 // consider using PIMPL idiom? https://stackoverflow.com/questions/8972588/is-the-pimpl-idiom-really-used-in-practice
 namespace
 {
-    // Custom theme made by George Power
+    // Custom theme (unfinished).
     void set_theme_gpbr(ImGuiStyle& style)
     {
         glm::vec3 base_col = glm::vec3(0.2980392f, 0.3450980f, 0.2666667f);
@@ -47,7 +47,7 @@ namespace
     }
 
     // Lifted from https://gist.github.com/enemymouse/c8aa24e247a1d7b9fc33d45091cbb8f0
-    // Tweaked some things to support ImGui 1.91.4
+    // and tweaked to support ImGui 1.91.4
     void set_theme_enemymouse(ImGuiStyle& style)
     {
         style.Alpha          = 1.0;

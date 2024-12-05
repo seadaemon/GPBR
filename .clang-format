@@ -12,6 +12,7 @@ BreakBeforeTernaryOperators: False
 ColumnLimit: 120
 ExperimentalAutoDetectBinPacking: false
 IndentWidth: 4
+PackConstructorInitializers: Never
 ReferenceAlignment: Left
 PointerAlignment: Left
 NamespaceIndentation: Inner

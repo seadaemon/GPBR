@@ -1,15 +1,16 @@
 /*
- * Provides functionality to create and manipulate descriptors
+ * Provides functionality to create and manipulate descriptors.
  * This includes handling memory allocation (via pools), creating layouts,
  * creating bindings, and creating/updating descriptor sets.
  */
 #pragma once
+
 #include <vector>
 #include "vk_types.h"
 #include <deque>
 #include <span>
 
-// Creates a VkDescriptorSetLayout to support a set of specified bindings.
+// Manages the creation of a descriptor set layout.
 struct DescriptorLayoutBuilder
 {
     // List of bindings to be used when building the layout.
@@ -25,7 +26,7 @@ struct DescriptorLayoutBuilder
                                 VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
-// Handles the creation and execution of write operations for a given descriptor set.
+// Manages the creation and execution of write operations for a descriptor set.
 struct DescriptorWriter
 {
     std::deque<VkDescriptorImageInfo> image_infos;
@@ -41,8 +42,8 @@ struct DescriptorWriter
     void update_set(VkDevice device, VkDescriptorSet set);
 };
 
-// Allocates memory for a single VkDescriptorPool object.
-struct DescriptorAllocator
+// Manages the memory of a single descriptor pool.
+struct [[deprecated("Use DescriptorAllocatorGrowable instead.")]] DescriptorAllocator
 {
     // Contains a descriptor type and a ratio used to calculate the total number of descriptors that can be allocated
     // (across all descriptor sets) in a given pool.
@@ -53,13 +54,13 @@ struct DescriptorAllocator
     };
 
     VkDescriptorPool pool;
-    // TBA
+    // Creates a new descriptor pool.
     void init_pool(VkDevice device, uint32_t max_sets, std::span<PoolSizeRatio> pool_ratios);
-    // TBA
+    // Resets the descriptor pool.
     void clear_descriptors(VkDevice device);
-    // TBA
+    // Destroys the descriptor pool.
     void destroy_pool(VkDevice device);
-    // TBA
+    // Allocates a descriptor set to the pool.
     VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout);
 };
 

@@ -744,8 +744,8 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
 
         // calculate final mesh matrix
         GPUDrawPushConstants push_constants;
-        push_constants.world_matrix  = r.transform;
-        push_constants.vertex_buffer = r.vertex_buffer_address;
+        push_constants.world_matrix          = r.transform;
+        push_constants.vertex_buffer_address = r.vertex_buffer_address;
 
         vkCmdPushConstants(cmd,
                            r.material->pipeline->layout,
@@ -809,7 +809,7 @@ void VulkanEngine::update_scene()
     _light_data.intensity = 1.f;
     _light_data.type      = (uint32_t)LightType::Point;
 
-    glm::mat4 view       = _main_camera.get_view_matrix();
+    glm::mat4 view       = _main_camera.view_mat;
     glm::mat4 projection = glm::perspective(
         _main_camera.fovy, (float)_draw_extent.width / (float)_draw_extent.height, _main_camera.far, _main_camera.near);
 
@@ -1817,9 +1817,6 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device,
 
     return mat_data;
 }
-
-// HACK: Returns early if mesh is a nullptr
-// FIXME: The guide does NOT do this, find another way to fix this later.
 
 void MeshNode::draw(const glm::mat4& top_matrix, DrawContext& ctx)
 {

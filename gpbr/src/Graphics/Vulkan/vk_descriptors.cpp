@@ -146,7 +146,7 @@ void DescriptorAllocatorGrowable::init(VkDevice device, uint32_t max_sets, std::
 
     VkDescriptorPool new_pool = create_pool(device, max_sets, pool_ratios);
 
-    sets_per_pool = max_sets * 1.5; // grow it next allocation
+    sets_per_pool = max_sets * 1.5; // grow for the next allocation
 
     ready_pools.push_back(new_pool);
 }
@@ -189,7 +189,6 @@ VkDescriptorPool DescriptorAllocatorGrowable::get_pool(VkDevice device)
     }
     else
     {
-        // need to create a new pool
         new_pool = create_pool(device, sets_per_pool, ratios);
 
         sets_per_pool = sets_per_pool * 1.5;
@@ -227,7 +226,6 @@ VkDescriptorPool DescriptorAllocatorGrowable::create_pool(VkDevice device,
 
 VkDescriptorSet DescriptorAllocatorGrowable::allocate(VkDevice device, VkDescriptorSetLayout layout, void* p_next)
 {
-    // get or create a pool to allocate from
     VkDescriptorPool pool_to_use = get_pool(device);
 
     VkDescriptorSetAllocateInfo alloc_info = {};
@@ -240,7 +238,7 @@ VkDescriptorSet DescriptorAllocatorGrowable::allocate(VkDevice device, VkDescrip
     VkDescriptorSet descriptor_set;
     VkResult result = vkAllocateDescriptorSets(device, &alloc_info, &descriptor_set);
 
-    // allocation failed. Try again
+    // allocation failed; try again
     if (result == VK_ERROR_OUT_OF_POOL_MEMORY || result == VK_ERROR_FRAGMENTED_POOL)
     {
 
