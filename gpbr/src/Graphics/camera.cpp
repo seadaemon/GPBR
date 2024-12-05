@@ -21,7 +21,8 @@ Camera::Camera(float near /*= 0.1f*/, float far /*= 1000.f*/, float fovy /*= 1.2
       right{1.f, 0.f, 0.f},
       up{0.f, 1.f, 0.f},
       frustum{},
-      input{false}
+      input{false},
+      mouse_sensitivity{100.f}
 {
 }
 
@@ -56,8 +57,10 @@ void Camera::update()
         velocity = glm::normalize(velocity) * max_velocity;
     }
 
-    yaw += input.yaw_target;
-    pitch -= input.pitch_target;
+    yaw   = glm::mix(yaw, yaw + input.yaw_target, 0.1f);
+    pitch = glm::mix(pitch, pitch - input.pitch_target, 0.1f);
+    // yaw += input.yaw_target;
+    // pitch -= input.pitch_target;
 
     input.yaw_target   = 0.f;
     input.pitch_target = 0.f;
@@ -136,9 +139,7 @@ void Camera::process_SDL_event(SDL_Event& e)
     // Mouse Inputs
     if (e.type == SDL_EVENT_MOUSE_MOTION)
     {
-        input.yaw_target   = (float)e.motion.xrel / 200.f;
-        input.pitch_target = (float)e.motion.yrel / 200.f;
-        // yaw += (float)e.motion.xrel / 200.f;
-        // pitch -= (float)e.motion.yrel / 200.f;
+        input.yaw_target   = (float)e.motion.xrel / mouse_sensitivity;
+        input.pitch_target = (float)e.motion.yrel / mouse_sensitivity;
     }
 }

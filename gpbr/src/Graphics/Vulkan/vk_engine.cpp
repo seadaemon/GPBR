@@ -88,6 +88,7 @@ void VulkanEngine::init()
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_MAXIMIZED | SDL_WINDOW_RESIZABLE);
 
     _window = SDL_CreateWindow(_window_title.c_str(), _window_extent.width, _window_extent.height, window_flags);
+    SDL_SetWindowRelativeMouseMode(_window, true);
 
     /* 2 Call each initialization method */
 
@@ -109,7 +110,7 @@ void VulkanEngine::init()
 
     _is_initialized = true;
 
-    /* 3 Initialize the camera and debug light */
+    /* 3 Initialize the camera */
 
     _main_camera.velocity = glm::vec3(0.f);
     _main_camera.position = glm::vec3(0.f, 1.76f, 10.f);
@@ -971,6 +972,7 @@ void VulkanEngine::draw()
 
 void VulkanEngine::run()
 {
+
     // TODO: implement fixed timestep
     // const float FPS = 60.0f;
     // const float dt  = 1.0f / FPS; // ~= 16.6ms
@@ -1007,16 +1009,15 @@ void VulkanEngine::run()
             //<== WINDOW EVENTS
 
             //==> INPUT EVENTS
-            _main_camera.process_SDL_event(e);
-            ImGui_ImplSDL3_ProcessEvent(&e);
-
-            if (e.key.type == SDL_EVENT_KEY_DOWN)
+            if (e.type == SDL_EVENT_KEY_DOWN)
             {
-                if (e.key.key == SDLK_SPACE)
+                if (e.key.key == SDLK_ESCAPE)
                 {
-                    fmt::print("Camera Forward [{}, {}, {}]", 0, 0, 0);
+                    SDL_SetWindowRelativeMouseMode(_window, !SDL_GetWindowRelativeMouseMode(_window));
                 }
             }
+            _main_camera.process_SDL_event(e);
+            ImGui_ImplSDL3_ProcessEvent(&e);
             //<== INPUT EVENTS
         }
 

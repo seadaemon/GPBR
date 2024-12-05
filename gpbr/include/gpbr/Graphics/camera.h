@@ -74,6 +74,8 @@ class Camera
 
     InputState input; // Current state of user input.
 
+    float mouse_sensitivity;
+
     void process_SDL_event(SDL_Event& e);
 
     void update(); // Updates the current state of the camera.
