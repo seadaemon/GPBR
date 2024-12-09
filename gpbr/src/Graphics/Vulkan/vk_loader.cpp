@@ -16,9 +16,10 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+// Attempts to load an image into memory as an AllocatedImage.
 std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image)
 {
-    AllocatedImage newImage{};
+    AllocatedImage new_image{};
 
     int width, height, nrChannels;
 
@@ -27,13 +28,12 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
             [](auto& arg) {},
             [&](fastgltf::sources::URI& filePath)
             {
-                assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
-                assert(filePath.uri.isLocalPath());   // We're only capable of loading
-                                                      // local files.
+                assert(filePath.fileByteOffset == 0); // don't support offsets with stbi.
+                assert(filePath.uri.isLocalPath());
 
-                const std::string path(filePath.uri.path().begin(),
-                                       filePath.uri.path().end()); // Thanks C++.
+                const std::string path(filePath.uri.path().begin(), filePath.uri.path().end());
                 unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrChannels, 4);
+
                 if (data)
                 {
                     VkExtent3D imagesize;
@@ -41,7 +41,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                     imagesize.height = height;
                     imagesize.depth  = 1;
 
-                    newImage = engine->create_image(
+                    new_image = engine->create_image(
                         data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
@@ -62,7 +62,7 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                     imagesize.height = height;
                     imagesize.depth  = 1;
 
-                    newImage = engine->create_image(
+                    new_image = engine->create_image(
                         data, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
@@ -73,9 +73,6 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                 auto& bufferView = asset.bufferViews[view.bufferViewIndex];
                 auto& buffer     = asset.buffers[bufferView.bufferIndex];
 
-                // We only care about VectorWithMime here, because we
-                // specify LoadExternalBuffers, meaning all buffers
-                // are already loaded into a vector.
                 std::visit(fastgltf::visitor{[](auto& arg) { std::cout << "!monostate!" << std::endl; },
                                              [&](fastgltf::sources::Array& array)
                                              {
@@ -93,11 +90,11 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
                                                      imagesize.height = height;
                                                      imagesize.depth  = 1;
 
-                                                     newImage = engine->create_image(data,
-                                                                                     imagesize,
-                                                                                     VK_FORMAT_R8G8B8A8_UNORM,
-                                                                                     VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                                                     true);
+                                                     new_image = engine->create_image(data,
+                                                                                      imagesize,
+                                                                                      VK_FORMAT_R8G8B8A8_UNORM,
+                                                                                      VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                                      true);
 
                                                      stbi_image_free(data);
                                                  }
@@ -107,20 +104,18 @@ std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& 
         },
         image.data);
 
-    // if any of the attempts to load the data failed, we havent written the image
-    // so handle is null
-    if (newImage.image == VK_NULL_HANDLE)
+    if (new_image.image == VK_NULL_HANDLE)
     {
         return {};
     }
     else
     {
-        return newImage;
+        return new_image;
     }
 }
 
-// Helper: converts filter properties from OpenGL to Vulkan
-// Returns VK_FILTER_LINEAR by default
+// Maps a fastgltf filter setting to Vulkan's equivalent.
+// Returns VK_FILTER_LINEAR by default.
 VkFilter extract_filter(fastgltf::Filter filter)
 {
     switch (filter)
@@ -138,7 +133,7 @@ VkFilter extract_filter(fastgltf::Filter filter)
     }
 }
 
-// Helper: converts mipmap properties from OpenGL to Vulkan
+// Maps a fastgltf mipmap setting to Vulkan's equivalent.
 // Returns VK_SAMPLER_MIPMAP_MODE_LINEAR by default
 VkSamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
 {
@@ -167,9 +162,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
     constexpr auto gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble |
                                   fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
-
-    // fastgltf::GltfDataBuffer data;
-    // data.FromPath(file_path);
 
     auto data = fastgltf::GltfDataBuffer::FromPath(file_path);
 
@@ -213,7 +205,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     }
     else
     {
-        std::cerr << "Failed to determine glTF container" << std::endl;
+        std::cerr << "Failed to determine glTF container!" << std::endl;
         return {};
     }
 
@@ -228,7 +220,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     file.descriptor_pool.init(engine->_device, gltf.materials.size(), sizes);
 
     //= Load samplers ==========================================================
-    // Defaults to nearest-neighbor for filtering and mipmapping
 
     for (fastgltf::Sampler& sampler : gltf.samplers)
     {
@@ -254,7 +245,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     std::vector<AllocatedImage> images;
     std::vector<std::shared_ptr<GLTFMaterial>> materials;
 
-    //= load all textures (use error texture by default) =======================
+    //= Load all textures (use error texture by default) =======================
 
     // TODO: Use different criteria to differentiate textures
 
@@ -281,9 +272,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         ic++;
     }
 
-    //= load materials =========================================================
+    //= Load materials =========================================================
 
-    // create buffer to hold material data
     file.material_data_buffer =
         engine->create_buffer(sizeof(GLTFMetallic_Roughness::MaterialConstants) * gltf.materials.size(),
                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -295,7 +285,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
     // load all materials
     for (fastgltf::Material& mat : gltf.materials)
     {
-        // add new_mat to the unordered_map (materials)
         std::shared_ptr<GLTFMaterial> new_mat = std::make_shared<GLTFMaterial>();
         materials.push_back(new_mat);
         file.materials[mat.name.c_str()] = new_mat;
@@ -309,7 +298,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         constants.metallic_factor     = mat.pbrData.metallicFactor;
         constants.roughness_factor    = mat.pbrData.roughnessFactor;
 
-        // get the alpha cut-off
         constants.extra[0].x = mat.alphaCutoff;
 
         // determine if material supports transparency
@@ -358,7 +346,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
             material_resources.metal_rough_sampler = file.samplers[sampler];
         }
 
-        // TODO: create a naming scheme
+        // TODO: create a more descriptive naming scheme
 
         constants.color_tex_ID =
             engine->_texture_cache
@@ -371,24 +359,23 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
                                                         "b")
                                            .index;
 
-        // write material parameters to buffer
+        // store constants and write the material
+
         scene_material_constants[data_index] = constants;
 
-        // build material
         new_mat->data = engine->_metal_rough_material.write_material(
             engine->_device, pass_type, material_resources, file.descriptor_pool);
 
         data_index++;
     }
 
-    //= load meshes ============================================================
+    //= Load meshes ============================================================
+
     std::vector<uint32_t> indices;
     std::vector<Vertex> vertices;
 
     for (fastgltf::Mesh& mesh : gltf.meshes)
     {
-        // add the new_mesh to the mesh unordered_map
-
         std::shared_ptr<MeshAsset> new_mesh = std::make_shared<MeshAsset>();
         meshes.push_back(new_mesh);
         file.meshes[mesh.name.c_str()] = new_mesh;
@@ -405,7 +392,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
             size_t initial_vtx = vertices.size();
 
-            // load indexes
+            // load indices
             {
                 fastgltf::Accessor& index_accessor = gltf.accessors[p.indicesAccessor.value()];
                 indices.reserve(indices.size() + index_accessor.count);
@@ -444,7 +431,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
                                                               { vertices[initial_vtx + index].normal = v; });
             }
 
-            // load UVs
+            // load vertex UVs
             auto uv = p.findAttribute("TEXCOORD_0");
             if (uv != p.attributes.end())
             {
@@ -488,13 +475,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
                 maxpos = glm::max(maxpos, vertices[i].position);
             }
 
-            new_surface.bounds.origin = (maxpos + minpos) / 2.f;
-            // fmt::println(
-            //     "{},{},{}", new_surface.bounds.origin.x, new_surface.bounds.origin.y, new_surface.bounds.origin.z);
-            new_surface.bounds.extents = (maxpos - minpos) / 2.f;
-            // fmt::println(
-            //     "{},{},{}", new_surface.bounds.extents.x, new_surface.bounds.extents.y,
-            //     new_surface.bounds.extents.z);
+            new_surface.bounds.origin        = (maxpos + minpos) / 2.f;
+            new_surface.bounds.extents       = (maxpos - minpos) / 2.f;
             new_surface.bounds.sphere_radius = glm::length(new_surface.bounds.extents);
             new_mesh->surfaces.push_back(new_surface);
         }
@@ -502,7 +484,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         new_mesh->mesh_buffers = engine->upload_mesh(indices, vertices);
     }
 
-    //= load nodes and their meshes ============================================
+    //= Load nodes and their associated meshes =================================
+
     for (fastgltf::Node& node : gltf.nodes)
     {
         std::shared_ptr<Node> new_node;
@@ -556,7 +539,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
         }
     }
 
-    // find the top nodes, with no parents
+    // identify top nodes
     for (auto& node : nodes)
     {
         if (node->parent.lock() == nullptr)
@@ -570,7 +553,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf(VulkanEngine* engine, std::
 
 void LoadedGLTF::draw(const glm::mat4& top_matrix, DrawContext& ctx)
 {
-    // create renderables from scene nodes
     for (auto& n : top_nodes)
     {
         n->draw(top_matrix, ctx);
@@ -592,8 +574,7 @@ void LoadedGLTF::clear_all()
 
         if (v.image == creator->_error_checkerboard_image.image)
         {
-            // dont destroy the default images
-            continue;
+            continue; // dont destroy the default images
         }
         creator->destroy_image(v);
     }

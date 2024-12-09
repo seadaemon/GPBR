@@ -24,26 +24,6 @@
 #define VMA_IMPLEMENTATION
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
-/*
-#ifndef VMA_DEBUG_LOG_FORMAT
-#define VMA_DEBUG_LOG_FORMAT(format, ...)                                                                              \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        printf((format), __VA_ARGS__);                                                                                 \
-        printf("\n");                                                                                                  \
-    } while (false)
-#endif
-
-#ifndef VMA_DEBUG_LOG
-#ifndef VMA_ENABLE_DEBUG_LOG
-/// VMA debug log disabled
-#define VMA_DEBUG_LOG(str)
-#else
-/// VMA debug log enabled
-#define VMA_DEBUG_LOG(str) VMA_DEBUG_LOG_FORMAT("%s", (str))
-#endif
-#endif
-*/
 #include "vma/vk_mem_alloc.h"
 #include <gpbr/Graphics/Vulkan/vk_images.h>
 #include <gpbr/Graphics/Vulkan/vk_pipelines.h>
@@ -1859,7 +1839,6 @@ TextureID TextureCache::add_texture(const VkImageView& image_view, VkSampler sam
     {
         if (cache[i].imageView == image_view && cache[i].sampler == sampler)
         {
-            // found, return it
             return TextureID{i};
         }
     }
