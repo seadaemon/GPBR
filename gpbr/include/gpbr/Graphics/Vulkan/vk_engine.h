@@ -228,8 +228,6 @@ class VulkanEngine
     VkDescriptorSet _draw_image_descriptors;
     VkDescriptorSetLayout _draw_image_descriptor_layout;
 
-    VkDescriptorSetLayout _single_image_descriptor_layout;
-
     DeletionQueue _main_deletion_queue;
 
     VmaAllocator _allocator;
@@ -240,16 +238,18 @@ class VulkanEngine
     VkCommandBuffer _imm_command_buffer;
     VkCommandPool _imm_command_pool;
 
-    AllocatedImage _draw_image;  // Main draw image
+    AllocatedImage _draw_image;  // Main color image
     AllocatedImage _depth_image; // Main depth image
 
-    AllocatedImage _white_image;              // 1x1 image.
-    AllocatedImage _black_image;              // 1x1 image.
-    AllocatedImage _grey_image;               // 1x1 image.
-    AllocatedImage _error_checkerboard_image; // A magenta and black checkerboard image.
+    // Sample images used for debugging. All but the checkerboard image are 1x1 pixels.
 
-    VkSampler _default_sampler_linear;  // linar filtering (blur)
-    VkSampler _default_sampler_nearest; // nearest neighbor filtering
+    AllocatedImage _white_image;
+    AllocatedImage _black_image;
+    AllocatedImage _grey_image;
+    AllocatedImage _error_checkerboard_image; // A magenta and black checkerboard .
+
+    VkSampler _default_sampler_linear;  // linar filtering (blur).
+    VkSampler _default_sampler_nearest; // nearest neighbor filtering.
 
     // draw resources
 
@@ -264,28 +264,14 @@ class VulkanEngine
     VkDescriptorSetLayout _gpu_scene_data_descriptor_layout;
     VkDescriptorSetLayout _gpu_light_data_descriptor_layout;
 
-    // Descriptor layout for bindless rendering pipeline.
-    VkDescriptorSetLayout _bindless_descriptor_layout;
-
-    // VkDescriptorSetLayout _gltf_mat_descriptor_layout;
-
     std::vector<ComputeEffect> background_effects;
     int current_background_effect{0};
 
-    // A first-person camera.
-    Camera _main_camera;
+    Camera _main_camera; // A first-person camera.
 
-    // A point light.
-    GPULightData _light_data;
+    GPULightData _light_data; // Describes a point light.
 
-    // New Stuff
-    // =======================================
-
-    AllocatedBuffer _default_GLTF_material_data;
-    VkDescriptorPool _descriptor_pool;
-    TextureCache _texture_cache;
-
-    // =======================================
+    TextureCache _texture_cache; // Used for texture indexing.
 
     // Initializes structures and objects required to run the engine.
     void init();
@@ -294,14 +280,14 @@ class VulkanEngine
     void cleanup();
 
     // The outermost draw loop.
-    // Typically used to call other draw loops.
+    // Used to setup and process other draw calls.
     void draw();
 
-    // Draws the current scene.
+    // Processes draw calls for geometry and background.
     void draw_main(VkCommandBuffer cmd);
     // Draws a background using compute shaders.
     void draw_background(VkCommandBuffer cmd);
-    // Draws 2D/3D geometry.
+    // Draws scene geometry.
     void draw_geometry(VkCommandBuffer cmd);
     // Draws ImGui windows using immediate rendering.
     void draw_imgui(VkCommandBuffer cmd, VkImageView target_image_view);

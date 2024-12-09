@@ -1398,12 +1398,6 @@ void VulkanEngine::init_descriptors()
         builder.add_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         _draw_image_descriptor_layout = builder.build(_device, VK_SHADER_STAGE_COMPUTE_BIT);
     }
-    // descriptor set layout for single image
-    {
-        DescriptorLayoutBuilder builder;
-        builder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        _single_image_descriptor_layout = builder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT);
-    }
     // descriptor set layout for scene
     {
         DescriptorLayoutBuilder builder;
@@ -1441,7 +1435,6 @@ void VulkanEngine::init_descriptors()
         [&]()
         {
             vkDestroyDescriptorSetLayout(_device, _draw_image_descriptor_layout, nullptr);
-            vkDestroyDescriptorSetLayout(_device, _single_image_descriptor_layout, nullptr);
             vkDestroyDescriptorSetLayout(_device, _gpu_scene_data_descriptor_layout, nullptr);
             vkDestroyDescriptorSetLayout(_device, _gpu_light_data_descriptor_layout, nullptr);
         });
