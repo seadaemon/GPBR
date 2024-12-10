@@ -251,7 +251,7 @@ class VulkanEngine
     VkSampler _default_sampler_linear;  // linar filtering (blur).
     VkSampler _default_sampler_nearest; // nearest neighbor filtering.
 
-    // draw resources
+    // Scene resources
 
     DrawContext _main_draw_context;
     GPUSceneData _scene_data;
@@ -283,7 +283,7 @@ class VulkanEngine
     // Used to setup and process other draw calls.
     void draw();
 
-    // Processes draw calls for geometry and background.
+    // Processes draw calls for background and geometry.
     void draw_main(VkCommandBuffer cmd);
     // Draws a background using compute shaders.
     void draw_background(VkCommandBuffer cmd);
@@ -297,8 +297,10 @@ class VulkanEngine
     // A single-threaded loop which handles user input and draw calls.
     void run();
 
+    // Uses alternate command buffer for immediate submits.
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
+    // Sends mesh data to the GPU.
     GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 
     AllocatedBuffer create_buffer(size_t alloc_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
@@ -326,20 +328,19 @@ class VulkanEngine
     void create_swapchain(uint32_t width, uint32_t height);
     // Initializes the swapchain for the current window.
     void init_swapchain();
-
+    // Destroys the swapchain and its image views.
     void destroy_swapchain();
     // Recreates the swapchain to suit the current window dimensions.
     void resize_swapchain();
-
+    // Initializes command pools and command buffers.
     void init_commands();
 
     void init_pipelines();
+    // Initializes pipelines for the background compute shader.
     void init_background_pipelines();
-
-    void init_mesh_pipeline();
-
+    // Initializes descriptors and descriptor sets.
     void init_descriptors();
-
+    // Initializes fences and semaphores.
     void init_sync_structures();
 
     void init_imgui();

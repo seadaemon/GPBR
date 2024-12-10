@@ -1,1 +1,18 @@
-DragonAttenuation.glb - Taken from the Khronos Group sample model repo https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/DragonAttenuation
+AlphaBlendModeTest.glb
+- Copyright 2018 Analytical Graphics, Inc. CC-BY 4.0 https://creativecommons.org/licenses/by/4.0/ Model and textures by Ed Mackey.
+- https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/AlphaBlendModeTest
+
+DragonAttenuation.glb
+- The dragon model based on the one from Morgan McGuire's Computer Graphics Archive.
+- Original dragon mesh data based on a Stanford Scan © 1996 Stanford University.
+- https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/DragonAttenuation
+
+SM_Deccer_Cubes_Colored.glb
+SM_Deccer_Cubes_Textured.glb
+SM_Deccer_Cubes_Textured_Complex.gltf
+- MIT License Copyright (c) 2022 Graphics Programming
+- https://github.com/GraphicsProgramming/deccer-cubes
+
+MetalRoughSpheres.glb 
+- Copyright 2017 Analytical Graphics, Inc. CC-BY 4.0 https://creativecommons.org/licenses/by/4.0/ Model and textures by Ed Mackey.
+- https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0/MetalRoughSpheres
