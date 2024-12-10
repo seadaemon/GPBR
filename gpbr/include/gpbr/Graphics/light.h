@@ -1,5 +1,7 @@
-/*
- * Provides structures to represent lights in a 3D scene
+/* light.h
+ *
+ * Provides structures to represent lights in a 3D scene.
+ *
  */
 #pragma once
 
@@ -16,19 +18,14 @@ enum class LightType
 
 struct Light
 {
-    // Name of the light.
     std::string name{""};
-    // Position of the light in world-space.
-    glm::vec3 position{0.f, 0.f, 0.f};
-    // RGB light color in linear space.
-    glm::vec3 color{1.f, 1.f, 1.f};
-    // Brightness of light.
+    glm::vec3 position{0.f, 0.f, 0.f}; // World-space coordinates.
+    glm::vec3 color{1.f, 1.f, 1.f};    // Linear RGB color.
     float intensity{1.f};
-    // The type of the light (directional, point, spot).
     LightType type{LightType::None};
 
     // Returns the integer representation of the current LightType
-    int get_GPU_type() const
+    uint32_t get_GPU_type() const
     {
         switch (type)
         {
@@ -45,7 +42,7 @@ struct Light
     }
 };
 
-// Light data to be used in shaders
+// Light data to be used in shaders.
 struct GPULightData
 {
     glm::vec3 position;
