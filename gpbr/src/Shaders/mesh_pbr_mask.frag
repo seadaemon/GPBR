@@ -13,6 +13,7 @@ layout (location = 1) in vec4 inColor;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 inPos;
 layout (location = 4) in vec3 inLightPos;
+layout (location = 5) in vec3 inCameraPos;
 
 layout (location = 0) out vec4 outFragColor;
 
@@ -55,44 +56,35 @@ vec3 calcIrradiance(vec3 nor) {
 
 void main() 
 {
-    // light, normal, view vectors
+    // light, normal, view, half
     vec3 lv = normalize(inLightPos - inPos);
     vec3 nv = normalize(inNormal);
-    vec3 vv = normalize(sceneData.camera_pos - inPos);
+    vec3 vv = normalize(inCameraPos - inPos); 
     vec3 hv = normalize(lv + vv);
 
+    vec3 irradiance = calcIrradiance(nv);
+
+    // Fetch color and metallic-roughness textures
     int colorID = materialData.color_texture_ID;
-    vec4 base_color = inColor * texture(allTextures[colorID],inUV);
-
-    int metallic_ID = materialData.metal_rough_texture_ID;
-    vec4 metallic_roughness = texture(allTextures[metallic_ID], inUV); 
-    
-    //vec4 metallic_roughness = texture( nonuniformEXT(allTextures[metallic_ID]), inUV);
-
-    float roughness = materialData.roughness_factor * metallic_roughness.g;
-    roughness = max(roughness, 1e-2); 
-     
+    vec4 base_color = inColor * texture( nonuniformEXT(allTextures[colorID]), inUV);
+    int metallic_rough_ID = materialData.metal_rough_texture_ID;
+    vec4 metallic_roughness = texture(allTextures[metallic_rough_ID], inUV);    
+ 
+    // Calculate perceptual roughness/metallic
+    float roughness = max(materialData.roughness_factor * metallic_roughness.g,  1e-2);
     float metallic = materialData.metallic_factor * metallic_roughness.b;
-
-    float lightValue = clamp(dot(lv, nv), 0.f, 1.f); 
-
-    
-    vec3 diffuse_color = (1.0 - metallic) * base_color.rgb;
-
-    vec3 dielectric_specular = vec3(0.04); 
-
-    vec3 f0 = mix(dielectric_specular, base_color.rgb, metallic);
-
+    metallic = metallic * metallic;
+    float LoN = clamp(dot(lv, nv), 0.0f, 1.f); 
+     
+    // Calculate f0 and diffuse_color 
+    vec3 diffuse_color = (1.0 - metallic) * base_color.rgb; 
+    vec3 dielectric_specular = vec3(0.04);    
+    vec3 f0 = mix(dielectric_specular, base_color.rgb, metallic);  
+     
     vec3 pbr = pbr_BRDF(diffuse_color, metallic, roughness, f0, nv, vv, lv);  
 
-    vec3 blinn_phong = blinnPhongBRDF(base_color.rgb, nv, vv, lv, hv); 
+    outFragColor = vec4(pbr * LoN + base_color.rgb*irradiance.x * vec3(0.2f), base_color.a);
 
-    //outFragColor = vec4(base_color,color.a);
-      
-    outFragColor = vec4(pbr, base_color.a);
-
-	//outFragColor = vec4(blinn_phong, color.a);
-    
     if(base_color.a < materialData.alpha_cutoff.x)
     {
         discard;

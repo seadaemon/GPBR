@@ -66,7 +66,7 @@ void main()
 
     // Fetch color and metallic-roughness textures
     int colorID = materialData.color_texture_ID;
-    vec4 base_color = inColor * texture( nonuniformEXT(allTextures[colorID]), inUV); //texture(allTextures[colorID],inUV);
+    vec4 base_color = inColor * texture( nonuniformEXT(allTextures[colorID]), inUV);
     int metallic_rough_ID = materialData.metal_rough_texture_ID;
     vec4 metallic_roughness = texture(allTextures[metallic_rough_ID], inUV);    
  

@@ -112,7 +112,7 @@ void VulkanEngine::init()
         { "MetalRoughSpheres",                 prefix + "MetalRoughSpheres.glb"}
     };
 
-    std::string gltf_path{glTF_map["Deccer Complex"]};
+    std::string gltf_path{glTF_map["MetalRoughSpheres"]};
     auto gltf_file = load_gltf(this, gltf_path);
     assert(gltf_file.has_value());
 
@@ -1620,7 +1620,7 @@ void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
     /* 1 Load shader modules */
 
     VkShaderModule mesh_mask_frag_shader;
-    if (!vkutil::load_shader_module("./Shaders/mesh_mask.frag.debug.spv", engine->_device, &mesh_mask_frag_shader))
+    if (!vkutil::load_shader_module("./Shaders/mesh_pbr_mask.frag.debug.spv", engine->_device, &mesh_mask_frag_shader))
     {
         fmt::println("Error when building the mesh mask fragment shader module");
     }
