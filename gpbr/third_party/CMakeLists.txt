@@ -1,3 +1,6 @@
+# glm
+add_subdirectory(glm)
+
 # stb
 add_subdirectory(stb)
 

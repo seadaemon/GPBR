@@ -13,3 +13,6 @@
 [submodule "gpbr/third_party/fastgltf"]
 	path = gpbr/third_party/fastgltf
 	url = https://github.com/spnda/fastgltf.git
+[submodule "gpbr/third_party/glm"]
+	path = gpbr/third_party/glm
+	url = https://github.com/g-truc/glm.git

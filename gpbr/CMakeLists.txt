@@ -25,6 +25,8 @@ endif()
 
 target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
 
+target_include_directories(gpbr PUBLIC "${CMAKE_CURRENT_LIST_DIR}/third_party/glm")
+
 # Vulkan - locate the SDK and ensure necessary modules exist
 find_package(Vulkan REQUIRED COMPONENTS glslc glslangValidator SPIRV-Tools shaderc_combined volk)
 
